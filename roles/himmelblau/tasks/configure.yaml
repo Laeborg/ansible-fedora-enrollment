@@ -45,11 +45,10 @@
   become: true
   loop: "{{ himmelblau_policy_files.stdout_lines }}"
   when:
-    - selinux_status.stdout == "Enforcing"
     - himmelblau_selinux_installed.rc == 0
     - himmelblau_policy_files.stdout_lines | length > 0
   changed_when: true
-  ignore_errors: true
+  register: selinux_policy_loaded
 
 - name: Create permissive policy module for himmelblau
   ansible.builtin.copy:
@@ -61,15 +60,20 @@
     dest: /tmp/himmelblau_permissive.cil
     mode: '0644'
   become: true
-  when: selinux_status.stdout == "Enforcing"
+  when:
+    - selinux_status.stdout == "Enforcing"
+    - selinux_policy_loaded is defined
+    - selinux_policy_loaded is succeeded
 
 - name: Load permissive policy module
   ansible.builtin.command:
     cmd: semodule -i /tmp/himmelblau_permissive.cil
   become: true
-  when: selinux_status.stdout == "Enforcing"
+  when:
+    - selinux_status.stdout == "Enforcing"
+    - selinux_policy_loaded is defined
+    - selinux_policy_loaded is succeeded
   changed_when: true
-  ignore_errors: true
 
 - name: Clean up permissive policy file
   ansible.builtin.file:
@@ -87,9 +91,20 @@
   register: permissive_check
   failed_when: false
 
+- name: Check if himmelblaud_t is permissive
+  ansible.builtin.shell:
+    cmd: semanage permissive -l | grep himmelblaud_t || echo "NOT PERMISSIVE"
+  become: true
+  when: selinux_status.stdout == "Enforcing"
+  changed_when: false
+  register: himmelblaud_permissive_status
+  failed_when: false
+
 - name: Display permissive mode status
   ansible.builtin.debug:
-    msg: "Himmelblau permissive mode: {{ 'ENABLED' if permissive_check.rc == 0 else 'FAILED - SELinux denials may occur' }}"
+    msg:
+      - "Himmelblau permissive module: {{ 'LOADED' if permissive_check.rc == 0 else 'NOT LOADED' }}"
+      - "himmelblaud_t permissive status: {{ himmelblaud_permissive_status.stdout }}"
   when: selinux_status.stdout == "Enforcing"
 
 - name: Restorecon on Himmelblau binaries
