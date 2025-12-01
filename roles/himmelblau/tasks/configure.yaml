@@ -51,20 +51,41 @@
   changed_when: true
   ignore_errors: true
 
-- name: Set himmelblau domains to permissive mode
-  ansible.builtin.command:
-    cmd: semanage permissive -a {{ item }}
+- name: Create permissive policy module for himmelblau
+  ansible.builtin.copy:
+    content: |
+      module himmelblau_permissive 1.0;
+
+      require {
+        type himmelblaud_t;
+        type himmelblaud_tasks_t;
+      }
+
+      permissive himmelblaud_t;
+      permissive himmelblaud_tasks_t;
+    dest: /tmp/himmelblau_permissive.cil
+    mode: '0644'
   become: true
-  loop:
-    - himmelblaud_t
-    - himmelblaud_tasks_t
+  when: selinux_status.stdout == "Enforcing"
+
+- name: Load permissive policy module
+  ansible.builtin.command:
+    cmd: semodule -i /tmp/himmelblau_permissive.cil
+  become: true
   when: selinux_status.stdout == "Enforcing"
   changed_when: true
-  failed_when: false
+  ignore_errors: true
+
+- name: Clean up permissive policy file
+  ansible.builtin.file:
+    path: /tmp/himmelblau_permissive.cil
+    state: absent
+  become: true
+  when: selinux_status.stdout == "Enforcing"
 
 - name: Verify permissive mode was set
   ansible.builtin.command:
-    cmd: semodule -l | grep -E "^himmelblau.*permissive"
+    cmd: semodule -l | grep himmelblau_permissive
   become: true
   when: selinux_status.stdout == "Enforcing"
   changed_when: false
