@@ -51,13 +51,30 @@
   changed_when: true
   ignore_errors: true
 
-- name: Set himmelblaud domain to permissive mode
+- name: Set himmelblau domains to permissive mode
   ansible.builtin.command:
-    cmd: semanage permissive -a himmelblaud_t
+    cmd: semanage permissive -a {{ item }}
   become: true
+  loop:
+    - himmelblaud_t
+    - himmelblaud_tasks_t
   when: selinux_status.stdout == "Enforcing"
   changed_when: true
-  ignore_errors: true
+  failed_when: false
+
+- name: Verify permissive mode was set
+  ansible.builtin.command:
+    cmd: semodule -l | grep -E "^himmelblau.*permissive"
+  become: true
+  when: selinux_status.stdout == "Enforcing"
+  changed_when: false
+  register: permissive_check
+  failed_when: false
+
+- name: Display permissive mode status
+  ansible.builtin.debug:
+    msg: "Himmelblau permissive mode: {{ 'ENABLED' if permissive_check.rc == 0 else 'FAILED - SELinux denials may occur' }}"
+  when: selinux_status.stdout == "Enforcing"
 
 - name: Restorecon on Himmelblau binaries
   ansible.builtin.command:
