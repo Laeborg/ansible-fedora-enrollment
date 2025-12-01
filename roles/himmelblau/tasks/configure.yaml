@@ -54,15 +54,10 @@
 - name: Create permissive policy module for himmelblau
   ansible.builtin.copy:
     content: |
-      module himmelblau_permissive 1.0;
-
-      require {
-        type himmelblaud_t;
-        type himmelblaud_tasks_t;
-      }
-
-      permissive himmelblaud_t;
-      permissive himmelblaud_tasks_t;
+      (typeattributeset cil_gen_require himmelblaud_t)
+      (typeattributeset cil_gen_require himmelblaud_tasks_t)
+      (typepermissive himmelblaud_t)
+      (typepermissive himmelblaud_tasks_t)
     dest: /tmp/himmelblau_permissive.cil
     mode: '0644'
   become: true
