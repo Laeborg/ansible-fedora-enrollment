@@ -11,5 +11,8 @@
 - name: Install lazygit
   ansible.builtin.include_tasks: tools/lazygit.yaml
 
+- name: Install Visual Studio Code
+  ansible.builtin.include_tasks: tools/vscode.yaml
+
 #- name: Install lazyssh
 #  ansible.builtin.include_tasks: tools/lazyssh.yaml

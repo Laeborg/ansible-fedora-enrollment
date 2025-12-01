@@ -89,7 +89,8 @@ Installs development and system management tools:
 - **terraform**: Infrastructure as Code tool
 - **k9s**: Kubernetes CLI management tool (via Copr)
 - **lazygit**: Terminal UI for git commands (via Copr)
-- **lazyssh**: Terminal UI for SSH connections (via Go install)
+- **Visual Studio Code**: Code editor from Microsoft
+- **lazyssh**: Terminal UI for SSH connections (via Go install) - *commented out by default*
 
 Note: lazyssh is installed to `~/go/bin/lazyssh` and requires Go to be installed on the system.
 
