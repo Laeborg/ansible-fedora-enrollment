@@ -41,9 +41,8 @@
 
 - name: Load all Himmelblau SELinux policies
   ansible.builtin.command:
-    cmd: semodule -i {{ item }}
+    cmd: semodule -i {{ himmelblau_policy_files.stdout_lines | join(' ') }}
   become: true
-  loop: "{{ himmelblau_policy_files.stdout_lines }}"
   when:
     - himmelblau_selinux_installed.rc == 0
     - himmelblau_policy_files.stdout_lines | length > 0
