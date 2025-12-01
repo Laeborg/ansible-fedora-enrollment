@@ -51,6 +51,62 @@
   changed_when: true
   ignore_errors: true
 
+- name: Create additional SELinux policy for himmelblaud permissions
+  ansible.builtin.copy:
+    content: |
+      module himmelblau_additional 1.0;
+
+      require {
+              type himmelblaud_t;
+              type himmelblaud_exec_t;
+              type himmelblaud_var_run_t;
+              class file { map write };
+              class sock_file write;
+      }
+
+      #============= himmelblaud_t ==============
+      allow himmelblaud_t himmelblaud_exec_t:file map;
+      allow himmelblaud_t himmelblaud_var_run_t:sock_file write;
+    dest: /tmp/himmelblau_additional.te
+    mode: '0644'
+  become: true
+  when: selinux_status.stdout == "Enforcing"
+
+- name: Compile additional SELinux policy
+  ansible.builtin.command:
+    cmd: checkmodule -M -m -o /tmp/himmelblau_additional.mod /tmp/himmelblau_additional.te
+  become: true
+  when: selinux_status.stdout == "Enforcing"
+  changed_when: true
+  ignore_errors: true
+
+- name: Package additional SELinux policy
+  ansible.builtin.command:
+    cmd: semodule_package -o /tmp/himmelblau_additional.pp -m /tmp/himmelblau_additional.mod
+  become: true
+  when: selinux_status.stdout == "Enforcing"
+  changed_when: true
+  ignore_errors: true
+
+- name: Load additional SELinux policy
+  ansible.builtin.command:
+    cmd: semodule -i /tmp/himmelblau_additional.pp
+  become: true
+  when: selinux_status.stdout == "Enforcing"
+  changed_when: true
+  ignore_errors: true
+
+- name: Clean up temporary SELinux policy files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  become: true
+  loop:
+    - /tmp/himmelblau_additional.te
+    - /tmp/himmelblau_additional.mod
+    - /tmp/himmelblau_additional.pp
+  when: selinux_status.stdout == "Enforcing"
+
 - name: Restorecon on Himmelblau binaries
   ansible.builtin.command:
     cmd: restorecon -R {{ item }}
