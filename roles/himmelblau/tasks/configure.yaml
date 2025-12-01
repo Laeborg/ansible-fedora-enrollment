@@ -41,24 +41,24 @@
     - semodule_check.rc != 0
   changed_when: true
 
-- name: Generate SELinux policy module for himmelblau services
+- name: Generate SELinux policy module for all himmelblau denials
   ansible.builtin.shell:
     cmd: |
-      ausearch -c 'himmelblaud' --raw | audit2allow -M himmelblau-services
+      ausearch -m avc -ts recent | grep -E 'himmelblau|pkla-check-auth.*himmelblau' | audit2allow -M himmelblau-all
   become: true
   when: selinux_status.stdout == "Enforcing"
   ignore_errors: true
-  register: audit2allow_result
-  changed_when: audit2allow_result.rc == 0
+  register: audit2allow_all_result
+  changed_when: audit2allow_all_result.rc == 0
 
-- name: Install SELinux policy module for himmelblau services
+- name: Install SELinux policy module for all himmelblau denials
   ansible.builtin.command:
-    cmd: semodule -i himmelblau-services.pp
+    cmd: semodule -i himmelblau-all.pp
   become: true
   when:
     - selinux_status.stdout == "Enforcing"
-    - audit2allow_result is defined
-    - audit2allow_result.rc == 0
+    - audit2allow_all_result is defined
+    - audit2allow_all_result.rc == 0
   changed_when: true
   ignore_errors: true
 
@@ -135,6 +135,32 @@
     - himmelblaud
     - himmelblaud-tasks
   register: himmelblau_status
+
+- name: Wait for potential SELinux denials to be logged
+  ansible.builtin.pause:
+    seconds: 3
+  when: selinux_status.stdout == "Enforcing"
+
+- name: Generate final SELinux policy for any remaining denials
+  ansible.builtin.shell:
+    cmd: |
+      ausearch -m avc -ts recent | grep -E 'himmelblau' | audit2allow -M himmelblau-final
+  become: true
+  when: selinux_status.stdout == "Enforcing"
+  ignore_errors: true
+  register: audit2allow_final_result
+  changed_when: audit2allow_final_result.rc == 0
+
+- name: Install final SELinux policy module
+  ansible.builtin.command:
+    cmd: semodule -i himmelblau-final.pp
+  become: true
+  when:
+    - selinux_status.stdout == "Enforcing"
+    - audit2allow_final_result is defined
+    - audit2allow_final_result.rc == 0
+  changed_when: true
+  ignore_errors: true
 
 - name: Display enrollment instructions
   ansible.builtin.debug:
