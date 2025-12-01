@@ -51,18 +51,33 @@
   changed_when: true
   ignore_errors: true
 
-- name: Restorecon on Himmelblau directories
+- name: Restorecon on Himmelblau binaries
   ansible.builtin.command:
     cmd: restorecon -R {{ item }}
   become: true
   loop:
     - /usr/bin/himmelblaud
     - /usr/bin/aad-tool
-    - /var/run/himmelblau
-    - /var/lib/himmelblau
   when: selinux_status.stdout == "Enforcing"
   changed_when: true
-  ignore_errors: true
+
+- name: Check if Himmelblau runtime directories exist
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  register: himmelblau_dirs
+  loop:
+    - /var/run/himmelblau
+    - /var/lib/himmelblau
+
+- name: Restorecon on existing Himmelblau runtime directories
+  ansible.builtin.command:
+    cmd: restorecon -R {{ item.item }}
+  become: true
+  loop: "{{ himmelblau_dirs.results }}"
+  when:
+    - selinux_status.stdout == "Enforcing"
+    - item.stat.exists
+  changed_when: true
 
 - name: Reload systemd daemon
   ansible.builtin.systemd:
