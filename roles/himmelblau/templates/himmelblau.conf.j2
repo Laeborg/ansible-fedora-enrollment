@@ -6,3 +6,10 @@ app_id = {{ himmelblau_app_id }}
 {% if himmelblau_pam_allow_groups is defined and himmelblau_pam_allow_groups | length > 0 %}
 pam_allow_groups = {{ himmelblau_pam_allow_groups | join(', ') }}
 {% endif %}
+
+{% if himmelblau_enable_offline | default(false) %}
+[offline_breakglass]
+# Enable offline breakglass mode for network-disconnected scenarios
+# Default TTL: 24 hours
+ttl = 24h
+{% endif %}

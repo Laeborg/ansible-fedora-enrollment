@@ -23,42 +23,44 @@
   changed_when: false
   failed_when: false
 
-- name: Ensure SELinux policy for Himmelblau is loaded
+- name: Check if himmelblau-selinux is installed
   ansible.builtin.command:
-    cmd: semodule -l | grep himmelblaud
-  register: semodule_check
+    cmd: rpm -q himmelblau-selinux
+  register: himmelblau_selinux_installed
   changed_when: false
   failed_when: false
   become: true
-  when: selinux_status.stdout == "Enforcing"
 
-- name: Load SELinux policy for Himmelblau if missing
-  ansible.builtin.command:
-    cmd: semodule -i /usr/share/selinux/packages/himmelblaud.pp
-  become: true
-  when:
-    - selinux_status.stdout == "Enforcing"
-    - semodule_check.rc != 0
-  changed_when: true
-
-- name: Generate SELinux policy module for all himmelblau denials
+- name: Find all SELinux policy files from himmelblau-selinux
   ansible.builtin.shell:
-    cmd: |
-      ausearch -m avc -ts recent | grep -E 'himmelblau|pkla-check-auth.*himmelblau' | audit2allow -M himmelblau-all
+    cmd: rpm -ql himmelblau-selinux | grep '\.pp$' || true
+  register: himmelblau_policy_files
+  changed_when: false
   become: true
-  when: selinux_status.stdout == "Enforcing"
-  ignore_errors: true
-  register: audit2allow_all_result
-  changed_when: audit2allow_all_result.rc == 0
+  when: himmelblau_selinux_installed.rc == 0
 
-- name: Install SELinux policy module for all himmelblau denials
+- name: Load all Himmelblau SELinux policies
   ansible.builtin.command:
-    cmd: semodule -i himmelblau-all.pp
+    cmd: semodule -i {{ item }}
   become: true
+  loop: "{{ himmelblau_policy_files.stdout_lines }}"
   when:
     - selinux_status.stdout == "Enforcing"
-    - audit2allow_all_result is defined
-    - audit2allow_all_result.rc == 0
+    - himmelblau_selinux_installed.rc == 0
+    - himmelblau_policy_files.stdout_lines | length > 0
+  changed_when: true
+  ignore_errors: true
+
+- name: Restorecon on Himmelblau directories
+  ansible.builtin.command:
+    cmd: restorecon -R {{ item }}
+  become: true
+  loop:
+    - /usr/bin/himmelblaud
+    - /usr/bin/aad-tool
+    - /var/run/himmelblau
+    - /var/lib/himmelblau
+  when: selinux_status.stdout == "Enforcing"
   changed_when: true
   ignore_errors: true
 
@@ -136,31 +138,49 @@
     - himmelblaud-tasks
   register: himmelblau_status
 
-- name: Wait for potential SELinux denials to be logged
-  ansible.builtin.pause:
-    seconds: 3
-  when: selinux_status.stdout == "Enforcing"
-
-- name: Generate final SELinux policy for any remaining denials
-  ansible.builtin.shell:
-    cmd: |
-      ausearch -m avc -ts recent | grep -E 'himmelblau' | audit2allow -M himmelblau-final
-  become: true
-  when: selinux_status.stdout == "Enforcing"
-  ignore_errors: true
-  register: audit2allow_final_result
-  changed_when: audit2allow_final_result.rc == 0
-
-- name: Install final SELinux policy module
+- name: Activate offline breakglass mode
   ansible.builtin.command:
-    cmd: semodule -i himmelblau-final.pp
+    cmd: aad-tool offline-breakglass --ttl 24h
   become: true
-  when:
-    - selinux_status.stdout == "Enforcing"
-    - audit2allow_final_result is defined
-    - audit2allow_final_result.rc == 0
+  when: himmelblau_enable_offline | default(false)
   changed_when: true
   ignore_errors: true
+
+- name: Wait for Himmelblau to be ready for enumeration
+  ansible.builtin.pause:
+    seconds: 5
+  when: himmelblau_cache_users is defined and himmelblau_cache_users | length > 0
+
+- name: Enumerate all users and groups for caching
+  ansible.builtin.command:
+    cmd: aad-tool enumerate
+  become: true
+  when: himmelblau_cache_users is defined and himmelblau_cache_users | length > 0
+  changed_when: true
+  register: enumerate_result
+  ignore_errors: true
+
+- name: Display enumeration result
+  ansible.builtin.debug:
+    msg: "User enumeration completed. Users cached for offline access."
+  when:
+    - enumerate_result is defined
+    - enumerate_result.rc == 0
+
+- name: Check for any SELinux denials
+  ansible.builtin.shell:
+    cmd: ausearch -m avc -ts recent 2>/dev/null | grep -c himmelblau || true
+  register: selinux_denials
+  changed_when: false
+  become: true
+  when: selinux_status.stdout == "Enforcing"
+
+- name: Display SELinux denial count
+  ansible.builtin.debug:
+    msg: "Found {{ selinux_denials.stdout }} SELinux denial(s) for Himmelblau. These should be resolved by the custom policy."
+  when:
+    - selinux_status.stdout == "Enforcing"
+    - selinux_denials.stdout != "0"
 
 - name: Display enrollment instructions
   ansible.builtin.debug:
@@ -169,16 +189,20 @@
       - "Himmelblau has been installed and configured!"
       - "===================================================="
       - ""
-      - "Himmelblau is now ready. Users can log in with their Azure AD credentials."
+      - "Himmelblau is now ready. Users can log in with their Azure Entra ID credentials."
+      - "{% if himmelblau_enable_offline | default(false) %}Offline breakglass mode: ENABLED{% endif %}"
+      - "{% if himmelblau_cache_users is defined and himmelblau_cache_users | length > 0 %}Cached users: {{ himmelblau_cache_users | join(', ') }}{% endif %}"
       - ""
       - "Useful commands:"
       - "  - Check status: sudo aad-tool status"
-      - "  - Test auth: sudo aad-tool auth-test <username@domain>"
+      - "  - Test auth: sudo aad-tool auth-test --user <username>@{{ himmelblau_domain }}"
       - "  - Enumerate users: sudo aad-tool enumerate"
       - "  - Clear cache: sudo aad-tool cache-clear"
+      - "  - Activate offline mode: sudo aad-tool offline-breakglass --ttl 24h"
+      - "  - Deactivate offline mode: sudo aad-tool offline-breakglass --ttl 0"
       - ""
       - "Users can now log in at the GDM login screen or via SSH using:"
       - "  Username: <username>@{{ himmelblau_domain }}"
-      - "  Password: <Azure AD password>"
+      - "  Password: <Azure Entra ID password>"
       - ""
       - "===================================================="
