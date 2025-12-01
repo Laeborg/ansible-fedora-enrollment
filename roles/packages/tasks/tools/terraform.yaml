@@ -1,0 +1,6 @@
+---
+- name: Install terraform
+  ansible.builtin.dnf:
+    name: terraform
+    state: present
+  become: true

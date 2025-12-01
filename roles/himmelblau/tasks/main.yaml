@@ -1,0 +1,6 @@
+---
+- name: Install Himmelblau
+  ansible.builtin.include_tasks: install.yaml
+
+- name: Configure Himmelblau
+  ansible.builtin.include_tasks: configure.yaml

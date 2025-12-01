@@ -1,0 +1,31 @@
+---
+- name: Ensure sudoers.d directory exists
+  ansible.builtin.file:
+    path: /etc/sudoers.d
+    state: directory
+    mode: '0750'
+  become: true
+
+- name: Configure sudo for Azure AD admin group
+  ansible.builtin.copy:
+    content: |
+      # Allow Azure AD admin group members to use sudo
+      %{{ himmelblau_domain }}\\{{ himmelblau_sudo_group }} ALL=(ALL) ALL
+    dest: /etc/sudoers.d/himmelblau-admins
+    mode: '0440'
+    validate: 'visudo -cf %s'
+  become: true
+  when: himmelblau_sudo_group is defined
+
+- name: Configure sudo for specific Azure AD users
+  ansible.builtin.copy:
+    content: |
+      # Allow specific Azure AD users to use sudo
+      {% for user in himmelblau_sudo_users %}
+      {{ user }}@{{ himmelblau_domain }} ALL=(ALL) ALL
+      {% endfor %}
+    dest: /etc/sudoers.d/himmelblau-users
+    mode: '0440'
+    validate: 'visudo -cf %s'
+  become: true
+  when: himmelblau_sudo_users is defined and himmelblau_sudo_users | length > 0

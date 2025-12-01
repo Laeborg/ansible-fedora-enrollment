@@ -1,0 +1,11 @@
+---
+# Hostname configuration
+hostname_pretty: "Emily's 2nd dev laptop"
+hostname_static: "emily-dev-2"
+
+# Himmelblau configuration
+himmelblau_domain: "example.com"
+himmelblau_app_id: "00000000-0000-0000-0000-000000000000"
+himmelblau_pam_allow_groups:
+  - "11111111-1111-1111-1111-111111111111"
+himmelblau_sudo_group: "LINUX_ADM"

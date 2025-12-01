@@ -1,0 +1,8 @@
+[global]
+domain = {{ himmelblau_domain }}
+
+[{{ himmelblau_domain }}]
+app_id = {{ himmelblau_app_id }}
+{% if himmelblau_pam_allow_groups is defined and himmelblau_pam_allow_groups | length > 0 %}
+pam_allow_groups = {{ himmelblau_pam_allow_groups | join(', ') }}
+{% endif %}

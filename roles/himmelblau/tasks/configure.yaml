@@ -1,0 +1,158 @@
+---
+- name: Ensure Himmelblau configuration directory exists
+  ansible.builtin.file:
+    path: /etc/himmelblau
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: Deploy Himmelblau configuration
+  ansible.builtin.template:
+    src: himmelblau.conf.j2
+    dest: /etc/himmelblau/himmelblau.conf
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  notify: Restart himmelblau
+
+- name: Check if SELinux is enabled
+  ansible.builtin.command:
+    cmd: getenforce
+  register: selinux_status
+  changed_when: false
+  failed_when: false
+
+- name: Ensure SELinux policy for Himmelblau is loaded
+  ansible.builtin.command:
+    cmd: semodule -l | grep himmelblaud
+  register: semodule_check
+  changed_when: false
+  failed_when: false
+  become: true
+  when: selinux_status.stdout == "Enforcing"
+
+- name: Load SELinux policy for Himmelblau if missing
+  ansible.builtin.command:
+    cmd: semodule -i /usr/share/selinux/packages/himmelblaud.pp
+  become: true
+  when:
+    - selinux_status.stdout == "Enforcing"
+    - semodule_check.rc != 0
+  changed_when: true
+
+- name: Generate SELinux policy module for himmelblau services
+  ansible.builtin.shell:
+    cmd: |
+      ausearch -c 'himmelblaud' --raw | audit2allow -M himmelblau-services
+  become: true
+  when: selinux_status.stdout == "Enforcing"
+  ignore_errors: true
+  register: audit2allow_result
+  changed_when: audit2allow_result.rc == 0
+
+- name: Install SELinux policy module for himmelblau services
+  ansible.builtin.command:
+    cmd: semodule -i himmelblau-services.pp
+  become: true
+  when:
+    - selinux_status.stdout == "Enforcing"
+    - audit2allow_result is defined
+    - audit2allow_result.rc == 0
+  changed_when: true
+  ignore_errors: true
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: yes
+  become: true
+
+- name: Enable and start himmelblau daemon
+  ansible.builtin.systemd:
+    name: himmelblaud
+    enabled: yes
+    state: started
+  become: true
+
+- name: Wait for himmelblaud to be ready
+  ansible.builtin.pause:
+    seconds: 2
+
+- name: Enable and start himmelblau-tasks service
+  ansible.builtin.systemd:
+    name: himmelblaud-tasks
+    enabled: yes
+    state: started
+  become: true
+  register: himmelblaud_tasks_start
+  until: himmelblaud_tasks_start is succeeded
+  retries: 3
+  delay: 5
+
+- name: Configure NSS for Himmelblau
+  ansible.builtin.lineinfile:
+    path: /etc/nsswitch.conf
+    regexp: '^{{ item.key }}:'
+    line: "{{ item.key }}:  files himmelblau"
+    backrefs: no
+  become: true
+  loop:
+    - { key: 'passwd' }
+    - { key: 'group' }
+
+- name: Check himmelblaud status before PAM configuration
+  ansible.builtin.systemd:
+    name: himmelblaud
+    state: started
+  become: true
+
+- name: Configure PAM for Himmelblau
+  ansible.builtin.command:
+    cmd: aad-tool configure-pam
+  become: true
+  changed_when: true
+  register: pam_config_result
+  failed_when: false
+
+- name: Display PAM configuration result
+  ansible.builtin.debug:
+    msg:
+      - "PAM configuration return code: {{ pam_config_result.rc }}"
+      - "stdout: {{ pam_config_result.stdout }}"
+      - "stderr: {{ pam_config_result.stderr }}"
+
+- name: Warn if PAM configuration failed
+  ansible.builtin.debug:
+    msg: "WARNING: aad-tool configure-pam returned non-zero. PAM may need manual configuration."
+  when: pam_config_result.rc != 0
+
+- name: Verify himmelblau services are running
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+  become: true
+  loop:
+    - himmelblaud
+    - himmelblaud-tasks
+  register: himmelblau_status
+
+- name: Display enrollment instructions
+  ansible.builtin.debug:
+    msg:
+      - "===================================================="
+      - "Himmelblau has been installed and configured!"
+      - "===================================================="
+      - ""
+      - "Himmelblau is now ready. Users can log in with their Azure AD credentials."
+      - ""
+      - "Useful commands:"
+      - "  - Check status: sudo aad-tool status"
+      - "  - Test auth: sudo aad-tool auth-test <username@domain>"
+      - "  - Enumerate users: sudo aad-tool enumerate"
+      - "  - Clear cache: sudo aad-tool cache-clear"
+      - ""
+      - "Users can now log in at the GDM login screen or via SSH using:"
+      - "  Username: <username>@{{ himmelblau_domain }}"
+      - "  Password: <Azure AD password>"
+      - ""
+      - "===================================================="

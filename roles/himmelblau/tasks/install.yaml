@@ -1,0 +1,43 @@
+---
+- name: Update system packages
+  ansible.builtin.dnf:
+    name: "*"
+    state: latest
+    update_cache: yes
+  become: true
+
+- name: Import Himmelblau GPG key
+  ansible.builtin.rpm_key:
+    state: present
+    key: https://packages.himmelblau-idm.org/himmelblau.asc
+  become: true
+
+- name: Add Himmelblau repository
+  ansible.builtin.get_url:
+    url: "https://packages.himmelblau-idm.org/stable/latest/rpm/fedora{{ ansible_distribution_version }}/himmelblau.repo"
+    dest: /etc/yum.repos.d/himmelblau.repo
+    mode: '0644'
+  become: true
+
+- name: Update DNF cache
+  ansible.builtin.dnf:
+    update_cache: yes
+  become: true
+
+- name: Install core Himmelblau packages
+  ansible.builtin.dnf:
+    name:
+      - himmelblau
+      - pam-himmelblau
+      - nss-himmelblau
+    state: present
+  become: true
+
+- name: Install optional Himmelblau packages
+  ansible.builtin.dnf:
+    name:
+      - himmelblau-sso
+      - o365
+      - himmelblau-selinux
+    state: present
+  become: true

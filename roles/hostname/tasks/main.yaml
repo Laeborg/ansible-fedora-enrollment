@@ -1,0 +1,17 @@
+---
+- name: Set static hostname
+  ansible.builtin.hostname:
+    name: "{{ hostname_static }}"
+  become: true
+
+- name: Set pretty hostname
+  ansible.builtin.command:
+    cmd: "hostnamectl set-hostname --pretty '{{ hostname_pretty }}'"
+  become: true
+  changed_when: true
+
+- name: Display configured hostnames
+  ansible.builtin.debug:
+    msg:
+      - "Static hostname: {{ hostname_static }}"
+      - "Pretty hostname: {{ hostname_pretty }}"

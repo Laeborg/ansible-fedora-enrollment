@@ -1,0 +1,10 @@
+---
+- name: Fedora Laptop Enrollment
+  hosts: localhost
+  gather_facts: true
+
+  roles:
+    - hostname
+    - packages
+    - himmelblau
+    - sudo
