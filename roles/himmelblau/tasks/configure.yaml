@@ -22,166 +22,28 @@
   register: selinux_status
   changed_when: false
   failed_when: false
+  become: true
 
-- name: Check if himmelblau-selinux is installed
+- name: Set SELinux to permissive mode
   ansible.builtin.command:
-    cmd: rpm -q himmelblau-selinux
-  register: himmelblau_selinux_installed
-  changed_when: false
-  failed_when: false
+    cmd: setenforce 0
   become: true
-
-- name: Find all SELinux policy files from himmelblau-selinux
-  ansible.builtin.shell:
-    cmd: rpm -ql himmelblau-selinux | grep '\.pp$' || true
-  register: himmelblau_policy_files
-  changed_when: false
-  become: true
-  when: himmelblau_selinux_installed.rc == 0
-
-- name: Display found policy files
-  ansible.builtin.debug:
-    msg: "Found {{ himmelblau_policy_files.stdout_lines | length }} policy files: {{ himmelblau_policy_files.stdout_lines }}"
-  when:
-    - himmelblau_selinux_installed.rc == 0
-    - himmelblau_policy_files is defined
-
-- name: Load all Himmelblau SELinux policies
-  ansible.builtin.command:
-    cmd: semodule -i {{ himmelblau_policy_files.stdout_lines | join(' ') }}
-  become: true
-  when:
-    - himmelblau_selinux_installed.rc == 0
-    - himmelblau_policy_files.stdout_lines | length > 0
-  changed_when: true
-  register: selinux_policy_loaded
-
-- name: Display policy load result
-  ansible.builtin.debug:
-    msg:
-      - "Policy load return code: {{ selinux_policy_loaded.rc if selinux_policy_loaded is defined else 'SKIPPED' }}"
-      - "stdout: {{ selinux_policy_loaded.stdout if selinux_policy_loaded is defined else 'N/A' }}"
-      - "stderr: {{ selinux_policy_loaded.stderr if selinux_policy_loaded is defined else 'N/A' }}"
-  when: selinux_policy_loaded is defined
-
-- name: Create permissive policy module for himmelblau
-  ansible.builtin.copy:
-    content: |
-      (typeattributeset cil_gen_require himmelblaud_t)
-      (typeattributeset cil_gen_require himmelblaud_tasks_t)
-      (typeattributeset cil_gen_require init_t)
-      (typeattributeset cil_gen_require himmelblaud_exec_t)
-      (typepermissive himmelblaud_t)
-      (typepermissive himmelblaud_tasks_t)
-      (allow init_t himmelblaud_t (process (transition)))
-      (allow init_t himmelblaud_exec_t (file (execute)))
-    dest: /tmp/himmelblau_permissive.cil
-    mode: '0644'
-  become: true
-  when:
-    - selinux_status.stdout == "Enforcing"
-    - selinux_policy_loaded is defined
-    - selinux_policy_loaded is succeeded
-
-- name: Load permissive policy module
-  ansible.builtin.command:
-    cmd: semodule -i /tmp/himmelblau_permissive.cil
-  become: true
-  when:
-    - selinux_status.stdout == "Enforcing"
-    - selinux_policy_loaded is defined
-    - selinux_policy_loaded is succeeded
-  changed_when: true
-
-- name: Clean up permissive policy file
-  ansible.builtin.file:
-    path: /tmp/himmelblau_permissive.cil
-    state: absent
-  become: true
-  when: selinux_status.stdout == "Enforcing"
-
-- name: Verify permissive mode was set
-  ansible.builtin.command:
-    cmd: semodule -l | grep himmelblau_permissive
-  become: true
-  when: selinux_status.stdout == "Enforcing"
-  changed_when: false
-  register: permissive_check
-  failed_when: false
-
-- name: Check if himmelblaud_t is permissive
-  ansible.builtin.shell:
-    cmd: semanage permissive -l | grep himmelblaud_t || echo "NOT PERMISSIVE"
-  become: true
-  when: selinux_status.stdout == "Enforcing"
-  changed_when: false
-  register: himmelblaud_permissive_status
-  failed_when: false
-
-- name: Display permissive mode status
-  ansible.builtin.debug:
-    msg:
-      - "Himmelblau permissive module: {{ 'LOADED' if permissive_check.rc == 0 else 'NOT LOADED' }}"
-      - "himmelblaud_t permissive status: {{ himmelblaud_permissive_status.stdout }}"
-  when: selinux_status.stdout == "Enforcing"
-
-- name: Restorecon on Himmelblau binaries
-  ansible.builtin.command:
-    cmd: restorecon -R {{ item }}
-  become: true
-  loop:
-    - /usr/bin/himmelblaud
-    - /usr/bin/aad-tool
   when: selinux_status.stdout == "Enforcing"
   changed_when: true
 
-- name: Check if Himmelblau runtime directories exist
-  ansible.builtin.stat:
-    path: "{{ item }}"
-  register: himmelblau_dirs
-  loop:
-    - /var/run/himmelblau
-    - /var/lib/himmelblau
-
-- name: Restorecon on existing Himmelblau runtime directories
-  ansible.builtin.command:
-    cmd: restorecon -R {{ item.item }}
+- name: Configure SELinux to boot in permissive mode
+  ansible.builtin.lineinfile:
+    path: /etc/selinux/config
+    regexp: '^SELINUX='
+    line: 'SELINUX=permissive'
+    state: present
   become: true
-  loop: "{{ himmelblau_dirs.results }}"
-  when:
-    - selinux_status.stdout == "Enforcing"
-    - item.stat.exists
-  changed_when: true
-
-- name: Remove systemd SELinux override for himmelblaud
-  ansible.builtin.file:
-    path: /etc/systemd/system/himmelblaud.service.d
-    state: absent
-  become: true
-
-- name: Remove systemd SELinux override for himmelblaud-tasks
-  ansible.builtin.file:
-    path: /etc/systemd/system/himmelblaud-tasks.service.d
-    state: absent
-  become: true
+  when: selinux_status.stdout == "Enforcing"
 
 - name: Reload systemd daemon
   ansible.builtin.systemd:
     daemon_reload: yes
   become: true
-
-- name: Check SELinux context of himmelblaud binary
-  ansible.builtin.command:
-    cmd: ls -Z /usr/sbin/himmelblaud
-  register: himmelblaud_binary_context
-  changed_when: false
-  become: true
-  when: selinux_status.stdout == "Enforcing"
-
-- name: Display himmelblaud binary context
-  ansible.builtin.debug:
-    msg: "himmelblaud binary SELinux context: {{ himmelblaud_binary_context.stdout }}"
-  when: selinux_status.stdout == "Enforcing"
 
 - name: Enable and start himmelblau daemon
   ansible.builtin.systemd:
@@ -281,20 +143,6 @@
     - enumerate_result is defined
     - enumerate_result.rc == 0
 
-- name: Check for any SELinux denials
-  ansible.builtin.shell:
-    cmd: ausearch -m avc -ts recent 2>/dev/null | grep -c himmelblau || true
-  register: selinux_denials
-  changed_when: false
-  become: true
-  when: selinux_status.stdout == "Enforcing"
-
-- name: Display SELinux denial count
-  ansible.builtin.debug:
-    msg: "Found {{ selinux_denials.stdout }} SELinux denial(s) for Himmelblau. These should be resolved by the custom policy."
-  when:
-    - selinux_status.stdout == "Enforcing"
-    - selinux_denials.stdout != "0"
 
 - name: Display enrollment instructions
   ansible.builtin.debug:
