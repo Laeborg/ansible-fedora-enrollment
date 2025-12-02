@@ -6,6 +6,9 @@ app_id = {{ himmelblau_app_id }}
 {% if himmelblau_pam_allow_groups is defined and himmelblau_pam_allow_groups | length > 0 %}
 pam_allow_groups = {{ himmelblau_pam_allow_groups | join(', ') }}
 {% endif %}
+{% if himmelblau_sudo_groups is defined and himmelblau_sudo_groups | length > 0 %}
+sudo_groups = {{ himmelblau_sudo_groups | join(', ') }}
+{% endif %}
 enable_hello = false
 
 {% if himmelblau_enable_offline | default(false) %}
