@@ -1,17 +1,42 @@
 ---
-- name: Ensure sudoers.d directory exists
-  ansible.builtin.file:
-    path: /etc/sudoers.d
-    state: directory
-    mode: '0750'
+- name: Ensure wheel group exists
+  ansible.builtin.group:
+    name: wheel
+    state: present
   become: true
 
-- name: Configure sudo for Azure Entra ID admin group
+- name: Configure pam_group to add G_HIMMELBLAU members to wheel group
+  ansible.builtin.lineinfile:
+    path: /etc/security/group.conf
+    line: '*;*;*;Al0000-2400;wheel'
+    create: yes
+    mode: '0644'
+  become: true
+
+- name: Enable pam_group in system-auth
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/system-auth
+    insertafter: '^auth\s+sufficient\s+pam_himmelblau\.so'
+    line: 'auth        optional                                     pam_group.so'
+    state: present
+  become: true
+
+- name: Create pam_exec script to add Azure AD users to wheel group
   ansible.builtin.copy:
     content: |
-      # Allow Azure Entra ID admin group members to use sudo
-      %G_HIMMELBLAU ALL=(ALL) ALL
-    dest: /etc/sudoers.d/himmelblau-admins
-    mode: '0440'
-    validate: 'visudo -cf %s'
+      #!/bin/bash
+      # Add Azure AD authenticated users (those with G_HIMMELBLAU group) to wheel group
+      if id "$PAM_USER" 2>/dev/null | grep -q "G_HIMMELBLAU"; then
+          usermod -aG wheel "$PAM_USER" 2>/dev/null || true
+      fi
+    dest: /usr/local/bin/add-azuread-to-wheel.sh
+    mode: '0755'
+  become: true
+
+- name: Enable pam_exec to add users to wheel group on login
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/system-auth
+    insertafter: '^session\s+optional\s+pam_himmelblau\.so'
+    line: 'session     optional                                     pam_exec.so /usr/local/bin/add-azuread-to-wheel.sh'
+    state: present
   become: true
