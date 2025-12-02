@@ -39,6 +39,13 @@
   become: true
   when: himmelblau_selinux_installed.rc == 0
 
+- name: Display found policy files
+  ansible.builtin.debug:
+    msg: "Found {{ himmelblau_policy_files.stdout_lines | length }} policy files: {{ himmelblau_policy_files.stdout_lines }}"
+  when:
+    - himmelblau_selinux_installed.rc == 0
+    - himmelblau_policy_files is defined
+
 - name: Load all Himmelblau SELinux policies
   ansible.builtin.command:
     cmd: semodule -i {{ himmelblau_policy_files.stdout_lines | join(' ') }}
@@ -48,6 +55,14 @@
     - himmelblau_policy_files.stdout_lines | length > 0
   changed_when: true
   register: selinux_policy_loaded
+
+- name: Display policy load result
+  ansible.builtin.debug:
+    msg:
+      - "Policy load return code: {{ selinux_policy_loaded.rc if selinux_policy_loaded is defined else 'SKIPPED' }}"
+      - "stdout: {{ selinux_policy_loaded.stdout if selinux_policy_loaded is defined else 'N/A' }}"
+      - "stderr: {{ selinux_policy_loaded.stderr if selinux_policy_loaded is defined else 'N/A' }}"
+  when: selinux_policy_loaded is defined
 
 - name: Create permissive policy module for himmelblau
   ansible.builtin.copy:
@@ -134,10 +149,59 @@
     - item.stat.exists
   changed_when: true
 
+- name: Create systemd override directory for himmelblaud
+  ansible.builtin.file:
+    path: /etc/systemd/system/himmelblaud.service.d
+    state: directory
+    mode: '0755'
+  become: true
+  when: selinux_status.stdout == "Enforcing"
+
+- name: Set SELinuxContext in himmelblaud service
+  ansible.builtin.copy:
+    content: |
+      [Service]
+      SELinuxContext=system_u:system_r:himmelblaud_t:s0
+    dest: /etc/systemd/system/himmelblaud.service.d/selinux.conf
+    mode: '0644'
+  become: true
+  when: selinux_status.stdout == "Enforcing"
+
+- name: Create systemd override directory for himmelblaud-tasks
+  ansible.builtin.file:
+    path: /etc/systemd/system/himmelblaud-tasks.service.d
+    state: directory
+    mode: '0755'
+  become: true
+  when: selinux_status.stdout == "Enforcing"
+
+- name: Set SELinuxContext in himmelblaud-tasks service
+  ansible.builtin.copy:
+    content: |
+      [Service]
+      SELinuxContext=system_u:system_r:himmelblaud_tasks_t:s0
+    dest: /etc/systemd/system/himmelblaud-tasks.service.d/selinux.conf
+    mode: '0644'
+  become: true
+  when: selinux_status.stdout == "Enforcing"
+
 - name: Reload systemd daemon
   ansible.builtin.systemd:
     daemon_reload: yes
   become: true
+
+- name: Check SELinux context of himmelblaud binary
+  ansible.builtin.command:
+    cmd: ls -Z /usr/sbin/himmelblaud
+  register: himmelblaud_binary_context
+  changed_when: false
+  become: true
+  when: selinux_status.stdout == "Enforcing"
+
+- name: Display himmelblaud binary context
+  ansible.builtin.debug:
+    msg: "himmelblaud binary SELinux context: {{ himmelblaud_binary_context.stdout }}"
+  when: selinux_status.stdout == "Enforcing"
 
 - name: Enable and start himmelblau daemon
   ansible.builtin.systemd:
