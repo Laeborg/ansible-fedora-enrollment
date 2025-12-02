@@ -84,25 +84,52 @@
     state: started
   become: true
 
-- name: Configure PAM for Himmelblau
+- name: Check current authselect profile
   ansible.builtin.command:
-    cmd: aad-tool configure-pam
+    cmd: authselect current --raw
+  register: authselect_current
+  changed_when: false
+  failed_when: false
+  become: true
+
+- name: Opt out of authselect to allow manual PAM configuration
+  ansible.builtin.command:
+    cmd: authselect opt-out
   become: true
   changed_when: true
-  register: pam_config_result
-  failed_when: false
+  when: authselect_current.rc == 0
 
-- name: Display PAM configuration result
-  ansible.builtin.debug:
-    msg:
-      - "PAM configuration return code: {{ pam_config_result.rc }}"
-      - "stdout: {{ pam_config_result.stdout }}"
-      - "stderr: {{ pam_config_result.stderr }}"
+- name: Add pam_himmelblau to system-auth
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/system-auth
+    insertafter: '^auth\s+sufficient\s+pam_unix\.so'
+    line: 'auth        sufficient                                   pam_himmelblau.so'
+    state: present
+  become: true
 
-- name: Warn if PAM configuration failed
-  ansible.builtin.debug:
-    msg: "WARNING: aad-tool configure-pam returned non-zero. PAM may need manual configuration."
-  when: pam_config_result.rc != 0
+- name: Add pam_himmelblau account to system-auth
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/system-auth
+    insertafter: '^account\s+required\s+pam_unix\.so'
+    line: 'account     sufficient                                   pam_himmelblau.so'
+    state: present
+  become: true
+
+- name: Add pam_himmelblau to password-auth
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/password-auth
+    insertafter: '^auth\s+sufficient\s+pam_unix\.so'
+    line: 'auth        sufficient                                   pam_himmelblau.so'
+    state: present
+  become: true
+
+- name: Add pam_himmelblau account to password-auth
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/password-auth
+    insertafter: '^account\s+required\s+pam_unix\.so'
+    line: 'account     sufficient                                   pam_himmelblau.so'
+    state: present
+  become: true
 
 - name: Verify himmelblau services are running
   ansible.builtin.systemd:
