@@ -5,6 +5,6 @@
 
   roles:
     - hostname
-    - gdm
+#    - gdm
     - himmelblau
     - sudo
