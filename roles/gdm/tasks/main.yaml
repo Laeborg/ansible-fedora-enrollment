@@ -5,13 +5,35 @@
     state: present
   become: true
 
+- name: Stop cosmic-greeter if running
+  ansible.builtin.systemd:
+    name: cosmic-greeter
+    state: stopped
+  become: true
+  failed_when: false
+
 - name: Disable cosmic-greeter if present
   ansible.builtin.systemd:
     name: cosmic-greeter
     enabled: no
-    state: stopped
   become: true
   failed_when: false
+
+- name: Mask cosmic-greeter to prevent conflicts
+  ansible.builtin.systemd:
+    name: cosmic-greeter
+    masked: yes
+  become: true
+  failed_when: false
+
+- name: Set COSMIC as default session in GDM
+  ansible.builtin.copy:
+    content: |
+      [daemon]
+      DefaultSession=cosmic.desktop
+    dest: /etc/gdm/custom.conf
+    mode: '0644'
+  become: true
 
 - name: Enable GDM
   ansible.builtin.systemd:
@@ -20,7 +42,7 @@
   become: true
 
 - name: Set default target to graphical
-  ansible.builtin.systemd:
-    name: graphical.target
-    enabled: yes
+  ansible.builtin.command:
+    cmd: systemctl set-default graphical.target
   become: true
+  changed_when: true
