@@ -31,9 +31,43 @@
     content: |
       [daemon]
       DefaultSession=cosmic.desktop
+
+      [greeter]
+      IncludeAll=true
     dest: /etc/gdm/custom.conf
     mode: '0644'
   become: true
+
+- name: Create dconf profile for GDM
+  ansible.builtin.copy:
+    content: |
+      user-db:user
+      system-db:gdm
+    dest: /etc/dconf/profile/gdm
+    mode: '0644'
+  become: true
+
+- name: Create GDM dconf database directory
+  ansible.builtin.file:
+    path: /etc/dconf/db/gdm.d
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: Set COSMIC as default session via dconf
+  ansible.builtin.copy:
+    content: |
+      [org/gnome/desktop/session]
+      session-name='cosmic'
+    dest: /etc/dconf/db/gdm.d/01-cosmic-default
+    mode: '0644'
+  become: true
+
+- name: Update dconf database
+  ansible.builtin.command:
+    cmd: dconf update
+  become: true
+  changed_when: true
 
 - name: Enable GDM
   ansible.builtin.systemd:
