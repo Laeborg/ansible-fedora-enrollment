@@ -181,28 +181,6 @@
   changed_when: true
   ignore_errors: true
 
-- name: Wait for Himmelblau to be ready for enumeration
-  ansible.builtin.pause:
-    seconds: 5
-  when: himmelblau_cache_users is defined and himmelblau_cache_users | length > 0
-
-- name: Enumerate all users and groups for caching
-  ansible.builtin.command:
-    cmd: aad-tool enumerate
-  become: true
-  when: himmelblau_cache_users is defined and himmelblau_cache_users | length > 0
-  changed_when: true
-  register: enumerate_result
-  ignore_errors: true
-
-- name: Display enumeration result
-  ansible.builtin.debug:
-    msg: "User enumeration completed. Users cached for offline access."
-  when:
-    - enumerate_result is defined
-    - enumerate_result.rc == 0
-
-
 - name: Display enrollment instructions
   ansible.builtin.debug:
     msg:
@@ -212,7 +190,6 @@
       - ""
       - "Himmelblau is now ready. Users can log in with their Azure Entra ID credentials."
       - "{% if himmelblau_enable_offline | default(false) %}Offline breakglass mode: ENABLED{% endif %}"
-      - "{% if himmelblau_cache_users is defined and himmelblau_cache_users | length > 0 %}Cached users: {{ himmelblau_cache_users | join(', ') }}{% endif %}"
       - ""
       - "Useful commands:"
       - "  - Check status: sudo aad-tool status"
