@@ -131,6 +131,38 @@
     state: present
   become: true
 
+- name: Add pam_himmelblau session to system-auth
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/system-auth
+    insertafter: '^session\s+required\s+pam_unix\.so'
+    line: 'session     optional                                     pam_himmelblau.so'
+    state: present
+  become: true
+
+- name: Add pam_himmelblau session to password-auth
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/password-auth
+    insertafter: '^session\s+required\s+pam_unix\.so'
+    line: 'session     optional                                     pam_himmelblau.so'
+    state: present
+  become: true
+
+- name: Add pam_mkhomedir to system-auth for home directory creation
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/system-auth
+    insertafter: '^session\s+optional\s+pam_himmelblau\.so'
+    line: 'session     required                                     pam_mkhomedir.so skel=/etc/skel umask=0077'
+    state: present
+  become: true
+
+- name: Add pam_mkhomedir to password-auth for home directory creation
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/password-auth
+    insertafter: '^session\s+optional\s+pam_himmelblau\.so'
+    line: 'session     required                                     pam_mkhomedir.so skel=/etc/skel umask=0077'
+    state: present
+  become: true
+
 - name: Verify himmelblau services are running
   ansible.builtin.systemd:
     name: "{{ item }}"
