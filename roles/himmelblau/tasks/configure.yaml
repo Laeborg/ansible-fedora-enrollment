@@ -68,15 +68,15 @@
   delay: 5
 
 - name: Configure NSS for Himmelblau
-  ansible.builtin.lineinfile:
+  ansible.builtin.replace:
     path: /etc/nsswitch.conf
-    regexp: '^{{ item.key }}:'
-    line: "{{ item.key }}:  files himmelblau"
-    backrefs: no
+    regexp: '^({{ item.key }}:\s+(?!.*himmelblau).*)$'
+    replace: '\1 himmelblau'
   become: true
   loop:
     - { key: 'passwd' }
     - { key: 'group' }
+    - { key: 'shadow' }
 
 - name: Check himmelblaud status before PAM configuration
   ansible.builtin.systemd:
