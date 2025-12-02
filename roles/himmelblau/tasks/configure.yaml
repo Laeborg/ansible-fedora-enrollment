@@ -157,7 +157,7 @@
       - ""
       - "Useful commands:"
       - "  - Check status: sudo aad-tool status"
-      - "  - Test auth: sudo aad-tool auth-test --user <username>@{{ himmelblau_domain }}"
+      - "  - Test auth: sudo aad-tool auth-test --name <username>@{{ himmelblau_domain }}"
       - "  - Enumerate users: sudo aad-tool enumerate"
       - "  - Clear cache: sudo aad-tool cache-clear"
       - "  - Activate offline mode: sudo aad-tool offline-breakglass --ttl 24h"
