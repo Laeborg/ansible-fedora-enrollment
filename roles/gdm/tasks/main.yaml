@@ -1,0 +1,26 @@
+---
+- name: Install GDM display manager
+  ansible.builtin.dnf:
+    name: gdm
+    state: present
+  become: true
+
+- name: Disable cosmic-greeter if present
+  ansible.builtin.systemd:
+    name: cosmic-greeter
+    enabled: no
+    state: stopped
+  become: true
+  failed_when: false
+
+- name: Enable GDM
+  ansible.builtin.systemd:
+    name: gdm
+    enabled: yes
+  become: true
+
+- name: Set default target to graphical
+  ansible.builtin.systemd:
+    name: graphical.target
+    enabled: yes
+  become: true
