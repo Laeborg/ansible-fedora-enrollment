@@ -10,22 +10,8 @@
   ansible.builtin.copy:
     content: |
       # Allow Azure Entra ID admin group members to use sudo
-      %{{ himmelblau_domain }}\\{{ himmelblau_sudo_group }} ALL=(ALL) ALL
+      %G_HIMMELBLAU ALL=(ALL) ALL
     dest: /etc/sudoers.d/himmelblau-admins
     mode: '0440'
     validate: 'visudo -cf %s'
   become: true
-  when: himmelblau_sudo_group is defined
-
-- name: Configure sudo for specific Azure Entra ID users
-  ansible.builtin.copy:
-    content: |
-      # Allow specific Azure Entra ID users to use sudo
-      {% for user in himmelblau_sudo_users %}
-      {{ user }}@{{ himmelblau_domain }} ALL=(ALL) ALL
-      {% endfor %}
-    dest: /etc/sudoers.d/himmelblau-users
-    mode: '0440'
-    validate: 'visudo -cf %s'
-  become: true
-  when: himmelblau_sudo_users is defined and himmelblau_sudo_users | length > 0
