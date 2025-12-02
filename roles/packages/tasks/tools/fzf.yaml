@@ -1,6 +1,0 @@
----
-- name: Install fzf
-  ansible.builtin.dnf:
-    name: fzf
-    state: present
-  become: true
