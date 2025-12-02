@@ -110,7 +110,7 @@
 - name: Add pam_himmelblau account to system-auth
   ansible.builtin.lineinfile:
     path: /etc/pam.d/system-auth
-    insertafter: '^account\s+required\s+pam_unix\.so'
+    insertbefore: '^account\s+required\s+pam_unix\.so'
     line: 'account     sufficient                                   pam_himmelblau.so'
     state: present
   become: true
@@ -126,7 +126,7 @@
 - name: Add pam_himmelblau account to password-auth
   ansible.builtin.lineinfile:
     path: /etc/pam.d/password-auth
-    insertafter: '^account\s+required\s+pam_unix\.so'
+    insertbefore: '^account\s+required\s+pam_unix\.so'
     line: 'account     sufficient                                   pam_himmelblau.so'
     state: present
   become: true
