@@ -69,8 +69,12 @@
     content: |
       (typeattributeset cil_gen_require himmelblaud_t)
       (typeattributeset cil_gen_require himmelblaud_tasks_t)
+      (typeattributeset cil_gen_require init_t)
+      (typeattributeset cil_gen_require himmelblaud_exec_t)
       (typepermissive himmelblaud_t)
       (typepermissive himmelblaud_tasks_t)
+      (allow init_t himmelblaud_t (process (transition)))
+      (allow init_t himmelblaud_exec_t (file (execute)))
     dest: /tmp/himmelblau_permissive.cil
     mode: '0644'
   become: true
@@ -149,41 +153,17 @@
     - item.stat.exists
   changed_when: true
 
-- name: Create systemd override directory for himmelblaud
+- name: Remove systemd SELinux override for himmelblaud
   ansible.builtin.file:
     path: /etc/systemd/system/himmelblaud.service.d
-    state: directory
-    mode: '0755'
+    state: absent
   become: true
-  when: selinux_status.stdout == "Enforcing"
 
-- name: Set SELinuxContext in himmelblaud service
-  ansible.builtin.copy:
-    content: |
-      [Service]
-      SELinuxContext=system_u:system_r:himmelblaud_t:s0
-    dest: /etc/systemd/system/himmelblaud.service.d/selinux.conf
-    mode: '0644'
-  become: true
-  when: selinux_status.stdout == "Enforcing"
-
-- name: Create systemd override directory for himmelblaud-tasks
+- name: Remove systemd SELinux override for himmelblaud-tasks
   ansible.builtin.file:
     path: /etc/systemd/system/himmelblaud-tasks.service.d
-    state: directory
-    mode: '0755'
+    state: absent
   become: true
-  when: selinux_status.stdout == "Enforcing"
-
-- name: Set SELinuxContext in himmelblaud-tasks service
-  ansible.builtin.copy:
-    content: |
-      [Service]
-      SELinuxContext=system_u:system_r:himmelblaud_tasks_t:s0
-    dest: /etc/systemd/system/himmelblaud-tasks.service.d/selinux.conf
-    mode: '0644'
-  become: true
-  when: selinux_status.stdout == "Enforcing"
 
 - name: Reload systemd daemon
   ansible.builtin.systemd:
