@@ -5,6 +5,7 @@
 
   roles:
     - hostname
+    - disk_encryption
 #    - gdm
-    - himmelblau
-    - sudo
+#    - himmelblau
+#    - sudo

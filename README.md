@@ -53,6 +53,39 @@ sudo aad-tool enumerate                        # Cache users for offline
 sudo aad-tool offline-breakglass --ttl 24h     # Enable offline mode
 ```
 
+## TPM2 Automatic Disk Decryption (Optional)
+
+Setup automatic LUKS disk decryption using TPM2 to eliminate the need for manual passphrase entry at boot.
+
+1. Configure [host_vars/localhost.yaml](host_vars/localhost.yaml):
+
+```yaml
+# Disk encryption
+luks_device: "/dev/nvme0n1p3"
+luks_passphrase: "your-disk-encryption-passphrase-here"
+tpm2_pcr_bank: "sha256"
+tpm2_pcr_ids: "7"
+```
+
+2. Run the disk encryption setup:
+
+```bash
+ansible-playbook -i inventory/localhost.yaml setup-disk-encryption.yaml --ask-become-pass
+```
+
+**What it does:**
+- Installs Clevis TPM2 packages
+- Binds your LUKS encrypted disk to TPM2 (PCR 7 - Secure Boot state)
+- Configures GRUB to use TPM2 for automatic decryption
+- Regenerates initramfs and GRUB configuration
+- Disables NetworkManager-wait-online to speed up boot
+
+**Important notes:**
+- Requires TPM 2.0 hardware
+- PCR 7 is tied to Secure Boot state - if you disable Secure Boot, automatic decryption will fail
+- Your disk encryption passphrase is still required as a fallback
+- Make sure to test rebooting after setup to verify it works
+
 ## Roles
 
 | Role | Purpose |
@@ -61,3 +94,4 @@ sudo aad-tool offline-breakglass --ttl 24h     # Enable offline mode
 | `packages` | Install development tools |
 | `himmelblau` | Azure Entra ID authentication |
 | `sudo` | Grant sudo to Azure Entra ID group |
+| `disk_encryption` | TPM2 automatic disk decryption |

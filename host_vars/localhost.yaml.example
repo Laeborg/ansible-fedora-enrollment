@@ -9,3 +9,9 @@ himmelblau_app_id: "00000000-0000-0000-0000-000000000000"
 himmelblau_pam_allow_groups:
   - "11111111-1111-1111-1111-111111111111"
 himmelblau_enable_offline: true
+
+# Disk encryption
+luks_device: "/dev/nvme0n1p3"
+luks_passphrase: "your-disk-encryption-passphrase-here"
+tpm2_pcr_bank: "sha256"
+tpm2_pcr_ids: "7"
