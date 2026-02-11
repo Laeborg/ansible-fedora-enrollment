@@ -6,6 +6,6 @@
   roles:
     - hostname
     - disk_encryption
-#    - gdm
-#    - himmelblau
+    - realm
+#    - himmelblau  # Azure Entra ID authentication
 #    - sudo

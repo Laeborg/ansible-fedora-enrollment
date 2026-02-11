@@ -15,3 +15,10 @@ luks_device: "/dev/nvme0n1p3"
 luks_passphrase: "your-disk-encryption-passphrase-here"
 tpm2_pcr_bank: "sha256"
 tpm2_pcr_ids: "7"
+
+# AD Realm Join
+ad_domain: "daoas.local"
+ad_user: "administrator"
+ad_password: "your-ad-password-here"
+ad_computer_ou: "OU=Linux,DC=daoas,DC=local"
+ad_allowed_group: "Linux-Users"

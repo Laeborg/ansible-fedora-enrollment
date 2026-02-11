@@ -1,0 +1,115 @@
+---
+- name: Install required packages for AD realm join
+  ansible.builtin.dnf:
+    name:
+      - realmd
+      - sssd
+      - oddjob
+      - oddjob-mkhomedir
+      - adcli
+      - samba-common-tools
+      - krb5-workstation
+    state: present
+  become: true
+
+- name: Check if system is already joined to a realm
+  ansible.builtin.command:
+    cmd: realm list
+  register: realm_status
+  changed_when: false
+  failed_when: false
+  become: true
+
+- name: Leave existing realm if joined
+  ansible.builtin.shell:
+    cmd: |
+      echo "{{ ad_password }}" | realm leave {{ ad_domain }} --user={{ ad_user }}
+  when: "ad_domain in realm_status.stdout"
+  become: true
+  no_log: false
+  register: realm_leave
+  failed_when: false
+
+- name: Join AD realm
+  ansible.builtin.shell:
+    cmd: |
+      echo "{{ ad_password }}" | realm join {{ ad_domain }} --user={{ ad_user }} --computer-ou='{{ ad_computer_ou }}'
+  when: "ad_domain not in realm_status.stdout or realm_leave is changed"
+  become: true
+  register: realm_join
+  environment:
+    LC_ALL: C
+
+- name: Configure SSSD for dynamic DNS updates
+  ansible.builtin.lineinfile:
+    path: /etc/sssd/sssd.conf
+    regexp: '^dyndns_update\s*='
+    line: "dyndns_update = True"
+    state: present
+  become: true
+  notify: restart sssd
+
+- name: Configure SSSD for dynamic DNS PTR updates
+  ansible.builtin.lineinfile:
+    path: /etc/sssd/sssd.conf
+    regexp: '^dyndns_update_ptr\s*='
+    line: "dyndns_update_ptr = True"
+    state: present
+  become: true
+  notify: restart sssd
+
+- name: Configure SSSD to read SSH keys from AD
+  ansible.builtin.lineinfile:
+    path: /etc/sssd/sssd.conf
+    regexp: '^ldap_user_ssh_public_key\s*='
+    line: "ldap_user_ssh_public_key = altSecurityIdentities"
+    state: present
+  become: true
+  notify: restart sssd
+
+- name: Configure SSSD simple allow groups
+  ansible.builtin.lineinfile:
+    path: /etc/sssd/sssd.conf
+    regexp: '^simple_allow_groups\s*='
+    line: "simple_allow_groups = {{ ad_allowed_group }}"
+    state: present
+  become: true
+  notify: restart sssd
+
+- name: Change SSSD access provider to simple
+  ansible.builtin.lineinfile:
+    path: /etc/sssd/sssd.conf
+    regexp: '^access_provider\s*=\s*ad'
+    line: "access_provider = simple"
+    backrefs: false
+  become: true
+  notify: restart sssd
+
+- name: Add SSH service to SSSD services
+  ansible.builtin.lineinfile:
+    path: /etc/sssd/sssd.conf
+    regexp: '^services\s*='
+    line: "services = nss, pam, ssh"
+    state: present
+  become: true
+  notify: restart sssd
+
+- name: Enable SSSD service
+  ansible.builtin.systemd:
+    name: sssd
+    enabled: true
+  become: true
+
+- name: Enable oddjobd service for home directory creation
+  ansible.builtin.systemd:
+    name: oddjobd
+    enabled: true
+    state: started
+  become: true
+
+- name: Restart SSSD to apply all changes
+  ansible.builtin.systemd:
+    name: sssd
+    state: restarted
+  become: true
+  when: realm_join is changed

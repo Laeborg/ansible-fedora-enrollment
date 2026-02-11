@@ -1,6 +1,6 @@
 # Ansible Fedora Enrollment
 
-Automated enrollment for Fedora 43 laptops with Azure Entra ID authentication.
+Automated enrollment for Fedora 43 laptops with Azure Entra ID or Active Directory authentication.
 
 ## Quick Start
 
@@ -53,6 +53,51 @@ sudo aad-tool enumerate                        # Cache users for offline
 sudo aad-tool offline-breakglass --ttl 24h     # Enable offline mode
 ```
 
+## Active Directory Realm Join (Alternative to Himmelblau)
+
+For traditional Active Directory environments, you can use realm join instead of Himmelblau.
+
+1. Configure [host_vars/localhost.yaml](host_vars/localhost.yaml):
+
+```yaml
+# AD Realm Join
+ad_domain: "daoas.local"
+ad_user: "administrator"
+ad_password: "your-ad-password"
+ad_computer_ou: "OU=Linux,DC=daoas,DC=local"
+ad_allowed_group: "Linux-Users"
+```
+
+2. In [enroll.yaml](enroll.yaml), comment out `himmelblau` and uncomment `realm`:
+
+```yaml
+roles:
+  - hostname
+# - himmelblau  # Azure Entra ID
+  - realm       # Active Directory
+  - sudo
+```
+
+3. Run enrollment:
+
+```bash
+ansible-playbook -i inventory/localhost.yaml enroll.yaml --ask-become-pass
+```
+
+**What it does:**
+- Installs realmd, sssd, and required packages
+- Joins the Active Directory domain
+- Configures SSSD with:
+  - Dynamic DNS updates (A and PTR records)
+  - SSH public key from AD (altSecurityIdentities attribute)
+  - Group-based access control
+  - Automatic home directory creation
+
+**After enrollment:**
+- Users log in with: `DOMAIN\username` or `username@domain`
+- Test with: `realm list` and `id username@domain`
+- SSH keys can be stored in AD's altSecurityIdentities attribute
+
 ## TPM2 Automatic Disk Decryption (Optional)
 
 Setup automatic LUKS disk decryption using TPM2 to eliminate the need for manual passphrase entry at boot.
@@ -93,5 +138,6 @@ ansible-playbook -i inventory/localhost.yaml setup-disk-encryption.yaml --ask-be
 | `hostname` | Configure static and pretty hostname |
 | `packages` | Install development tools |
 | `himmelblau` | Azure Entra ID authentication |
+| `realm` | Active Directory realm join (alternative to himmelblau) |
 | `sudo` | Grant sudo to Azure Entra ID group |
 | `disk_encryption` | TPM2 automatic disk decryption |
