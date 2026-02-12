@@ -183,68 +183,12 @@
   become: true
   when: realm_join is changed
 
-- name: Debug - Display realm status
-  ansible.builtin.command:
-    cmd: realm list
-  register: realm_list_output
-  changed_when: false
-  become: true
-  when: realm_join is changed
-
-- name: Debug - Show realm information
-  ansible.builtin.debug:
-    msg: "{{ realm_list_output.stdout_lines }}"
-  when: realm_join is changed
-
-- name: Debug - Test AD user lookup
-  ansible.builtin.command:
-    cmd: id {{ ad_user }}@{{ ad_domain }}
-  register: ad_user_lookup
-  changed_when: false
-  failed_when: false
-  become: true
-  when: realm_join is changed
-
-- name: Debug - Show AD user info
-  ansible.builtin.debug:
-    msg: "{{ ad_user_lookup.stdout }}"
-  when:
-    - realm_join is changed
-    - ad_user_lookup.rc == 0
-
-- name: Debug - Check SSSD configuration
-  ansible.builtin.command:
-    cmd: grep -E "simple_allow_groups|access_provider" /etc/sssd/sssd.conf
-  register: sssd_config_check
-  changed_when: false
-  failed_when: false
-  become: true
-  when: realm_join is changed
-
-- name: Debug - Show SSSD access configuration
-  ansible.builtin.debug:
-    msg: "{{ sssd_config_check.stdout_lines }}"
-  when: realm_join is changed
-
-- name: Debug - Verify DNS resolution
-  ansible.builtin.command:
-    cmd: nslookup {{ ad_domain }}
-  register: dns_check
-  changed_when: false
-  failed_when: false
-  when: realm_join is changed
-
-- name: Debug - Show DNS results
-  ansible.builtin.debug:
-    msg: "{{ dns_check.stdout_lines }}"
-  when: realm_join is changed
-
-- name: Disconnect VPN after realm join
-  ansible.builtin.shell:
-    cmd: killall -SIGINT openconnect
-  become: true
-  failed_when: false
-  when:
-    - vpn_enabled | default(false)
-    - vpn_connect is defined
-    - vpn_connect is changed
+#- name: Disconnect VPN after realm join
+#  ansible.builtin.shell:
+#    cmd: killall -SIGINT openconnect
+#  become: true
+#  failed_when: false
+#  when:
+#    - vpn_enabled | default(false)
+#    - vpn_connect is defined
+#    - vpn_connect is changed
