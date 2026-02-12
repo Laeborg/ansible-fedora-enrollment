@@ -1,43 +1,36 @@
 ---
-- name: Verify primary users exist in AD
+- name: Get user info from SSSD for primary users
   ansible.builtin.command:
-    cmd: "getent passwd {{ item }}"
+    cmd: "id {{ item }}"
   loop: "{{ primary_users | default([]) }}"
-  register: user_lookup
+  register: user_info
   changed_when: false
   failed_when: false
   become: true
 
-- name: Create AccountsService directory
-  ansible.builtin.file:
-    path: /var/lib/AccountsService/users
-    state: directory
-    mode: '0755'
-    owner: root
-    group: root
-  become: true
+- name: Parse user information
+  ansible.builtin.set_fact:
+    parsed_users: "{{ parsed_users | default([]) + [{'username': item.item, 'uid': item.stdout | regex_search('uid=(\\d+)', '\\1') | first, 'gid': item.stdout | regex_search('gid=(\\d+)', '\\1') | first, 'found': item.rc == 0}] }}"
+  loop: "{{ user_info.results }}"
+  when: item.rc == 0
 
-- name: Create AccountsService entries for primary users
-  ansible.builtin.copy:
-    dest: "/var/lib/AccountsService/users/{{ item }}"
-    content: |
-      [User]
-      SystemAccount=false
-      Language=da_DK.UTF-8
-    mode: '0644'
-    owner: root
-    group: root
-  loop: "{{ primary_users | default([]) }}"
+- name: Add primary users to /etc/passwd for greeter visibility
+  ansible.builtin.lineinfile:
+    path: /etc/passwd
+    regexp: '^{{ item.username }}:'
+    line: "{{ item.username }}:x:{{ item.uid }}:{{ item.gid }}:{{ item.username }}:/home/{{ item.username }}:/bin/bash"
+    state: present
+  loop: "{{ parsed_users | default([]) }}"
   become: true
-  when: user_lookup.results | selectattr('item', 'equalto', item) | map(attribute='rc') | first == 0
+  when: item.found | default(false)
 
 - name: Display configured users
   ansible.builtin.debug:
-    msg: "Created AccountsService entries for {{ primary_users | length }} user(s). They will appear in COSMIC Greeter login list."
-  when: primary_users is defined and primary_users | length > 0
+    msg: "Added {{ parsed_users | default([]) | length }} user(s) to /etc/passwd. They will appear in COSMIC Greeter login list."
+  when: parsed_users is defined and parsed_users | length > 0
 
 - name: Show individual user status
   ansible.builtin.debug:
-    msg: "{{ item.item }}: {{ 'configured for login screen' if item.rc == 0 else 'NOT FOUND in AD - skipped' }}"
-  loop: "{{ user_lookup.results }}"
-  when: primary_users is defined and primary_users | length > 0
+    msg: "{{ item.username }}: {{ 'added to login screen (UID: ' + item.uid + ')' if item.found else 'NOT FOUND in AD - skipped' }}"
+  loop: "{{ parsed_users | default([]) }}"
+  when: parsed_users is defined
