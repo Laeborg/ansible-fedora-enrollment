@@ -35,7 +35,7 @@ vpn_password: "your-vpn-password"
 
 ### 3. Run
 ```bash
-ansible-playbook -i inventory/localhost.yaml enroll.yaml --ask-become-pass
+ansible-playbook -i inventory/localhost.yaml playbooks.yaml --ask-become-pass
 ```
 
 ### 4. Login
