@@ -108,6 +108,14 @@
   register: realm_leave
   failed_when: false
 
+- name: Stop SSSD before cleanup
+  ansible.builtin.systemd:
+    name: sssd
+    state: stopped
+  become: true
+  when: "ad_domain in realm_status.stdout or realm_leave is changed"
+  failed_when: false
+
 - name: Remove old keytab to prevent authentication issues
   ansible.builtin.file:
     path: /etc/krb5.keytab
@@ -240,12 +248,8 @@
     state: started
   become: true
 
-- name: Restart SSSD to apply all changes
-  ansible.builtin.systemd:
-    name: sssd
-    state: restarted
-  become: true
-  when: realm_join is changed
+- name: Flush handlers to restart SSSD with new configuration
+  ansible.builtin.meta: flush_handlers
 
 - name: Disconnect VPN after realm join
   ansible.builtin.shell:
