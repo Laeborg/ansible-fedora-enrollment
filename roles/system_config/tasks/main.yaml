@@ -19,20 +19,35 @@
   when: ansible_distribution == "Fedora"
 
 - name: Configure dnf-automatic for security updates only
-  ansible.builtin.lineinfile:
+  community.general.ini_file:
     path: /etc/dnf/automatic.conf
-    regexp: '^upgrade_type\s*='
-    line: "upgrade_type = security"
-    state: present
+    section: commands
+    option: upgrade_type
+    value: security
+    create: true
+    mode: '0644'
   become: true
   when: ansible_distribution == "Fedora"
 
 - name: Configure dnf-automatic to apply updates automatically
-  ansible.builtin.lineinfile:
+  community.general.ini_file:
     path: /etc/dnf/automatic.conf
-    regexp: '^apply_updates\s*='
-    line: "apply_updates = yes"
-    state: present
+    section: commands
+    option: apply_updates
+    value: "yes"
+    create: true
+    mode: '0644'
+  become: true
+  when: ansible_distribution == "Fedora"
+
+- name: Configure dnf-automatic download updates
+  community.general.ini_file:
+    path: /etc/dnf/automatic.conf
+    section: commands
+    option: download_updates
+    value: "yes"
+    create: true
+    mode: '0644'
   become: true
   when: ansible_distribution == "Fedora"
 
