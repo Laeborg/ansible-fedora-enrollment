@@ -1,24 +1,24 @@
 ---
 # Hostname configuration
-hostname_pretty: "Emily's 2nd dev laptop"
-hostname_static: "emily-dev-2"
-
-# Himmelblau configuration
-himmelblau_domain: "example.com"
-himmelblau_app_id: "00000000-0000-0000-0000-000000000000"
-himmelblau_pam_allow_groups:
-  - "11111111-1111-1111-1111-111111111111"
-himmelblau_enable_offline: true
+hostname_pretty: "DAO-NB-XXXX"
+hostname_static: "dao-nb-xxxx"
 
 # Disk encryption
 luks_device: "/dev/nvme0n1p3"
-luks_passphrase: "your-disk-encryption-passphrase-here"
+luks_passphrase: "your-disk-encryption-passphrase"
 tpm2_pcr_bank: "sha256"
 tpm2_pcr_ids: "7"
 
-# AD Realm Join
+# AD Realm
 ad_domain: "daoas.local"
 ad_user: "administrator"
 ad_password: "your-ad-password-here"
 ad_computer_ou: "OU=Linux,DC=daoas,DC=local"
 ad_allowed_group: "Linux-Users"
+
+# VPN Configuration
+vpn_enabled: true
+vpn_server: "vpn.dao.as"
+vpn_authgroup: "dao.int"
+vpn_username: "your-vpn-username"
+vpn_password: "your-vpn-password"

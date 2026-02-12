@@ -1,4 +1,82 @@
 ---
+- name: Create systemd-resolved configuration directory
+  ansible.builtin.file:
+    path: /etc/systemd/resolved.conf.d
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: Configure conditional DNS forwarding for AD domain
+  ansible.builtin.copy:
+    dest: /etc/systemd/resolved.conf.d/ad-domain.conf
+    content: |
+      [Resolve]
+      DNS={{ ad_dns_servers | join(' ') }}
+      Domains=~{{ ad_domain }}
+    mode: '0644'
+  become: true
+  notify: restart systemd-resolved
+
+- name: Enable and start systemd-resolved
+  ansible.builtin.systemd:
+    name: systemd-resolved
+    enabled: true
+    state: started
+  become: true
+
+- name: Flush handlers to ensure DNS is configured
+  ansible.builtin.meta: flush_handlers
+
+- name: Install OpenConnect for VPN
+  ansible.builtin.dnf:
+    name: openconnect
+    state: present
+  become: true
+  when: vpn_enabled | default(false)
+
+- name: Check if domain controllers are reachable
+  ansible.builtin.command:
+    cmd: ping -c 1 -W 2 {{ ad_dns_servers[0] }}
+  register: dc_reachable
+  failed_when: false
+  changed_when: false
+  when: vpn_enabled | default(false)
+
+- name: Establish VPN connection if DCs not reachable
+  ansible.builtin.shell:
+    cmd: |
+      echo "{{ vpn_password }}" | openconnect \
+        --useragent="AnyConnect Linux_64 5.1.0" \
+        --authgroup="{{ vpn_authgroup }}" \
+        --user="{{ vpn_username }}" \
+        --passwd-on-stdin \
+        --background \
+        {{ vpn_server }}
+  become: true
+  when:
+    - vpn_enabled | default(false)
+    - dc_reachable.rc != 0
+  register: vpn_connect
+  changed_when: vpn_connect.rc == 0
+  no_log: true
+
+- name: Wait for VPN connection to establish
+  ansible.builtin.wait_for:
+    timeout: 10
+  when:
+    - vpn_enabled | default(false)
+    - dc_reachable.rc != 0
+    - vpn_connect is changed
+
+- name: Verify domain controller is now reachable via VPN
+  ansible.builtin.command:
+    cmd: ping -c 1 -W 2 {{ ad_dns_servers[0] }}
+  register: dc_reachable_vpn
+  changed_when: false
+  when:
+    - vpn_enabled | default(false)
+    - dc_reachable.rc != 0
+
 - name: Install required packages for AD realm join
   ansible.builtin.dnf:
     name:
@@ -113,3 +191,13 @@
     state: restarted
   become: true
   when: realm_join is changed
+
+- name: Disconnect VPN after realm join
+  ansible.builtin.shell:
+    cmd: killall -SIGINT openconnect
+  become: true
+  failed_when: false
+  when:
+    - vpn_enabled | default(false)
+    - vpn_connect is defined
+    - vpn_connect is changed

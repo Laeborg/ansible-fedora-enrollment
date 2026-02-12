@@ -1,9 +1,0 @@
----
-- name: Restart himmelblau
-  ansible.builtin.systemd:
-    name: "{{ item }}"
-    state: restarted
-  become: true
-  loop:
-    - himmelblaud
-    - himmelblaud-tasks

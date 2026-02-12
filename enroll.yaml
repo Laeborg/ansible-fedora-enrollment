@@ -7,5 +7,3 @@
     - hostname
     - disk_encryption
     - realm
-#    - himmelblau  # Azure Entra ID authentication
-#    - sudo
