@@ -22,3 +22,4 @@ vpn_server: "vpn.dao.as"
 vpn_authgroup: "dao.int"
 vpn_username: "your-vpn-username"
 vpn_password: "your-vpn-password"
+vpn_auto_connect: true

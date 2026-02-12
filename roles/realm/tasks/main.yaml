@@ -222,12 +222,17 @@
   become: true
   when: realm_join is changed
 
-#- name: Disconnect VPN after realm join
-#  ansible.builtin.shell:
-#    cmd: killall -SIGINT openconnect
-#  become: true
-#  failed_when: false
-#  when:
-#    - vpn_enabled | default(false)
-#    - vpn_connect is defined
-#    - vpn_connect is changed
+- name: Disconnect VPN after realm join
+  ansible.builtin.shell:
+    cmd: killall -SIGINT openconnect
+  become: true
+  failed_when: false
+  when:
+    - vpn_enabled | default(false)
+    - vpn_connect is defined
+    - vpn_connect is changed
+
+# Optional: Smart VPN auto-connect on AD login
+- name: Include VPN auto-connect integration
+  ansible.builtin.include_tasks: vpn_auth_integration.yaml
+  when: vpn_auto_connect | default(false)
