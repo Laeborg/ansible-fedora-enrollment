@@ -11,50 +11,80 @@
   when: ansible_distribution == "Fedora"
 
 # Automatic Security Updates
-- name: Install dnf-automatic for automatic updates
+- name: Check if DNF5 is in use
+  ansible.builtin.stat:
+    path: /usr/share/dnf5/dnf5-plugins/automatic.conf
+  register: dnf5_template
+  become: true
+  when: ansible_distribution == "Fedora"
+
+- name: Install dnf-automatic for automatic updates (DNF4)
   ansible.builtin.dnf:
     name: dnf-automatic
     state: present
   become: true
+  when:
+    - ansible_distribution == "Fedora"
+    - not dnf5_template.stat.exists
+
+- name: Copy DNF5 automatic config from template
+  ansible.builtin.copy:
+    src: /usr/share/dnf5/dnf5-plugins/automatic.conf
+    dest: /etc/dnf/dnf5-automatic.conf
+    remote_src: true
+    mode: '0644'
+    force: false
+  become: true
+  when:
+    - ansible_distribution == "Fedora"
+    - dnf5_template.stat.exists
+
+- name: Set config file path based on DNF version
+  ansible.builtin.set_fact:
+    dnf_auto_conf: "{{ '/etc/dnf/dnf5-automatic.conf' if dnf5_template.stat.exists else '/etc/dnf/automatic.conf' }}"
   when: ansible_distribution == "Fedora"
 
 - name: Configure dnf-automatic for security updates only
-  community.general.ini_file:
-    path: /etc/dnf/automatic.conf
-    section: commands
-    option: upgrade_type
-    value: security
-    create: true
-    mode: '0644'
+  ansible.builtin.lineinfile:
+    path: "{{ dnf_auto_conf }}"
+    regexp: '^upgrade_type\s*='
+    line: "upgrade_type = security"
+    state: present
   become: true
   when: ansible_distribution == "Fedora"
 
 - name: Configure dnf-automatic to apply updates automatically
-  community.general.ini_file:
-    path: /etc/dnf/automatic.conf
-    section: commands
-    option: apply_updates
-    value: "yes"
-    create: true
-    mode: '0644'
+  ansible.builtin.lineinfile:
+    path: "{{ dnf_auto_conf }}"
+    regexp: '^apply_updates\s*='
+    line: "apply_updates = yes"
+    state: present
   become: true
   when: ansible_distribution == "Fedora"
 
-- name: Configure dnf-automatic download updates
-  community.general.ini_file:
-    path: /etc/dnf/automatic.conf
-    section: commands
-    option: download_updates
-    value: "yes"
-    create: true
-    mode: '0644'
+- name: Configure dnf-automatic to download updates
+  ansible.builtin.lineinfile:
+    path: "{{ dnf_auto_conf }}"
+    regexp: '^download_updates\s*='
+    line: "download_updates = yes"
+    state: present
+  become: true
+  when: ansible_distribution == "Fedora"
+
+- name: Find available dnf-automatic timers
+  ansible.builtin.shell:
+    cmd: systemctl list-unit-files 'dnf*-automatic*.timer' --no-pager --no-legend | awk '{print $1}'
+  register: dnf_timers
+  changed_when: false
   become: true
   when: ansible_distribution == "Fedora"
 
 - name: Enable and start dnf-automatic timer for daily security updates
   ansible.builtin.systemd:
-    name: dnf-automatic-install.timer
+    name: "{{ dnf_timers.stdout_lines[0] if dnf_timers.stdout_lines | length > 0 else 'dnf-automatic.timer' }}"
     enabled: true
     state: started
   become: true
-  when: ansible_distribution == "Fedora"
+  when:
+    - ansible_distribution == "Fedora"
+    - dnf_timers.stdout_lines | length > 0
