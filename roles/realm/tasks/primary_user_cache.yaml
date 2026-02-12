@@ -1,20 +1,43 @@
 ---
-- name: Pre-cache primary users for login screen
+- name: Verify primary users exist in AD
   ansible.builtin.command:
     cmd: "getent passwd {{ item }}"
   loop: "{{ primary_users | default([]) }}"
-  register: user_cache
+  register: user_lookup
   changed_when: false
   failed_when: false
   become: true
 
-- name: Display cached users
+- name: Create AccountsService directory
+  ansible.builtin.file:
+    path: /var/lib/AccountsService/users
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+  become: true
+
+- name: Create AccountsService entries for primary users
+  ansible.builtin.copy:
+    dest: "/var/lib/AccountsService/users/{{ item }}"
+    content: |
+      [User]
+      SystemAccount=false
+      Language=da_DK.UTF-8
+    mode: '0644'
+    owner: root
+    group: root
+  loop: "{{ primary_users | default([]) }}"
+  become: true
+  when: user_lookup.results | selectattr('item', 'equalto', item) | map(attribute='rc') | first == 0
+
+- name: Display configured users
   ansible.builtin.debug:
-    msg: "Successfully cached {{ primary_users | length }} primary user(s)"
+    msg: "Created AccountsService entries for {{ primary_users | length }} user(s). They will appear in COSMIC Greeter login list."
   when: primary_users is defined and primary_users | length > 0
 
-- name: Show individual user cache results
+- name: Show individual user status
   ansible.builtin.debug:
-    msg: "{{ item.item }}: {{ 'cached successfully' if item.rc == 0 else 'NOT FOUND - check username format (username@domain)' }}"
-  loop: "{{ user_cache.results }}"
+    msg: "{{ item.item }}: {{ 'configured for login screen' if item.rc == 0 else 'NOT FOUND in AD - skipped' }}"
+  loop: "{{ user_lookup.results }}"
   when: primary_users is defined and primary_users | length > 0
