@@ -159,6 +159,20 @@
   when: realm_join is changed
   changed_when: false
 
+- name: Validate realm join was successful
+  ansible.builtin.command:
+    cmd: adcli testjoin
+  become: true
+  when: realm_join is changed
+  changed_when: false
+  register: testjoin_result
+  failed_when: testjoin_result.rc != 0
+
+- name: Display realm join validation result
+  ansible.builtin.debug:
+    msg: "Realm join validated successfully: {{ testjoin_result.stdout }}"
+  when: realm_join is changed
+
 - name: Stop SSSD after realm join to allow config modifications
   ansible.builtin.systemd:
     name: sssd
@@ -250,10 +264,47 @@
   become: true
   notify: restart sssd
 
+- name: Enable automatic machine password renewal
+  ansible.builtin.lineinfile:
+    path: /etc/sssd/sssd.conf
+    regexp: '^ad_machine_account_password_renewal_opts\s*='
+    line: "ad_machine_account_password_renewal_opts = 30:7"
+    state: present
+  become: true
+  notify: restart sssd
+
+- name: Set machine password renewal timeout
+  ansible.builtin.lineinfile:
+    path: /etc/sssd/sssd.conf
+    regexp: '^ad_maximum_machine_account_password_age\s*='
+    line: "ad_maximum_machine_account_password_age = 30"
+    state: present
+  become: true
+  notify: restart sssd
+
+- name: Create SSSD systemd override directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/sssd.service.d
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: Configure SSSD to wait for network before starting
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/sssd.service.d/wait-network.conf
+    content: |
+      [Unit]
+      After=network-online.target
+      Wants=network-online.target
+    mode: '0644'
+  become: true
+  notify: reload systemd
+
 - name: Enable SSSD service
   ansible.builtin.systemd:
     name: sssd
     enabled: true
+    daemon_reload: true
   become: true
 
 - name: Enable oddjobd service for home directory creation
