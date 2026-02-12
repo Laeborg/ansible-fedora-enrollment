@@ -1,0 +1,10 @@
+---
+# Remove iBus on COSMIC desktop
+# iBus causes notification errors on COSMIC Wayland at every login
+# Not needed for Danish/English keyboards - only required for complex input (Chinese, Japanese, etc.)
+- name: Remove iBus package on Fedora COSMIC systems
+  ansible.builtin.dnf:
+    name: ibus
+    state: absent
+  become: true
+  when: ansible_distribution == "Fedora"

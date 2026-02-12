@@ -94,7 +94,7 @@ luks_device: "/dev/nvme0n1p3"
 luks_passphrase: "your-passphrase"
 ```
 
-The disk_encryption role is included in `enroll.yaml`. To disable it, comment it out:
+The disk_encryption role is included in `playbooks.yaml`. To disable it, comment it out:
 ```yaml
 roles:
   - hostname
@@ -105,11 +105,12 @@ roles:
 ## Files
 ```
 ansible-fedora-enrollment/
-├── enroll.yaml                    # Main playbook
+├── playbooks.yaml                 # Main playbook
 ├── inventory/localhost.yaml       # Inventory
 ├── host_vars/localhost.yaml       # Configuration (edit this!)
 └── roles/
     ├── hostname/                  # Set system hostname
+    ├── disk_encryption/           # TPM2 LUKS unlock
     ├── realm/                     # AD realm join
-    └── disk_encryption/           # TPM2 LUKS unlock
+    └── system_config/             # System cleanup (removes iBus on COSMIC)
 ```

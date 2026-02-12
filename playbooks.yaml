@@ -7,3 +7,4 @@
     - hostname
     - disk_encryption
     - realm
+    - system_config
