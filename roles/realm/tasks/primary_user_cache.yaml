@@ -24,6 +24,16 @@
   become: true
   when: item.found | default(false)
 
+- name: Add shadow entries to prevent PAM fallthrough issues
+  ansible.builtin.lineinfile:
+    path: /etc/shadow
+    regexp: '^{{ item.username }}:'
+    line: "{{ item.username }}:!!:19000:0:99999:7:::"
+    state: present
+  loop: "{{ parsed_users | default([]) }}"
+  become: true
+  when: item.found | default(false)
+
 - name: Display configured users
   ansible.builtin.debug:
     msg: "Added {{ parsed_users | default([]) | length }} user(s) to /etc/passwd. They will appear in COSMIC Greeter login list."
