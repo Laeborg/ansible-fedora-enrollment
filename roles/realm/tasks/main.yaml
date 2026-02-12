@@ -108,11 +108,36 @@
   register: realm_leave
   failed_when: false
 
+- name: Remove old keytab to prevent authentication issues
+  ansible.builtin.file:
+    path: /etc/krb5.keytab
+    state: absent
+  become: true
+  when: "ad_domain in realm_status.stdout or realm_leave is changed"
+  register: keytab_cleanup
+
+- name: Clear SSSD cache to prevent stale data
+  ansible.builtin.file:
+    path: /var/lib/sss/db
+    state: absent
+  become: true
+  when: "ad_domain in realm_status.stdout or realm_leave is changed"
+
+- name: Recreate SSSD db directory
+  ansible.builtin.file:
+    path: /var/lib/sss/db
+    state: directory
+    mode: '0700'
+    owner: root
+    group: root
+  become: true
+  when: "ad_domain in realm_status.stdout or realm_leave is changed"
+
 - name: Join AD realm
   ansible.builtin.shell:
     cmd: |
       echo "{{ ad_password }}" | realm join {{ ad_domain }} --user={{ ad_user }} --computer-ou='{{ ad_computer_ou }}'
-  when: "ad_domain not in realm_status.stdout or realm_leave is changed"
+  when: "ad_domain not in realm_status.stdout or keytab_cleanup is not skipped"
   become: true
   register: realm_join
   environment:
