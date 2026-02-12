@@ -136,6 +136,33 @@
   become: true
   notify: restart sssd
 
+- name: Enable offline credentials caching
+  ansible.builtin.lineinfile:
+    path: /etc/sssd/sssd.conf
+    regexp: '^cache_credentials\s*='
+    line: "cache_credentials = True"
+    state: present
+  become: true
+  notify: restart sssd
+
+- name: Set offline credentials expiration (90 days)
+  ansible.builtin.lineinfile:
+    path: /etc/sssd/sssd.conf
+    regexp: '^offline_credentials_expiration\s*='
+    line: "offline_credentials_expiration = 90"
+    state: present
+  become: true
+  notify: restart sssd
+
+- name: Allow offline authentication
+  ansible.builtin.lineinfile:
+    path: /etc/sssd/sssd.conf
+    regexp: '^krb5_store_password_if_offline\s*='
+    line: "krb5_store_password_if_offline = True"
+    state: present
+  become: true
+  notify: restart sssd
+
 - name: Configure SSSD simple allow groups
   ansible.builtin.lineinfile:
     path: /etc/sssd/sssd.conf
