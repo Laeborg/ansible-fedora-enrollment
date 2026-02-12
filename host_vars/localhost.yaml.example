@@ -1,7 +1,7 @@
 ---
 # Hostname configuration
 hostname_pretty: "DAO-NB-XXXX"
-hostname_static: "dao-nb-xxxx"
+hostname_static: "dao-nb-xxxxd.daoas.local"
 
 # Disk encryption
 luks_device: "/dev/nvme0n1p3"
@@ -22,4 +22,3 @@ vpn_server: "vpn.dao.as"
 vpn_authgroup: "dao.int"
 vpn_username: "your-vpn-username"
 vpn_password: "your-vpn-password"
-vpn_auto_connect: true
