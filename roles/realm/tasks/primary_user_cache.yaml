@@ -8,17 +8,28 @@
   failed_when: false
   become: true
 
+- name: Get full user details including name
+  ansible.builtin.command:
+    cmd: "getent passwd {{ item }}"
+  loop: "{{ primary_users | default([]) }}"
+  register: user_details
+  changed_when: false
+  failed_when: false
+  become: true
+
 - name: Parse user information
   ansible.builtin.set_fact:
-    parsed_users: "{{ parsed_users | default([]) + [{'username': item.item, 'uid': item.stdout | regex_search('uid=(\\d+)', '\\1') | first, 'gid': item.stdout | regex_search('gid=(\\d+)', '\\1') | first, 'found': item.rc == 0}] }}"
+    parsed_users: "{{ parsed_users | default([]) + [{'username': item.item, 'uid': user_info.results[idx].stdout | regex_search('uid=(\\d+)', '\\1') | first, 'gid': user_info.results[idx].stdout | regex_search('gid=(\\d+)', '\\1') | first, 'gecos': user_details.results[idx].stdout.split(':')[4] | default(item.item.split('@')[0]), 'found': item.rc == 0}] }}"
   loop: "{{ user_info.results }}"
+  loop_control:
+    index_var: idx
   when: item.rc == 0
 
 - name: Add primary users to /etc/passwd for greeter visibility
   ansible.builtin.lineinfile:
     path: /etc/passwd
     regexp: '^{{ item.username }}:'
-    line: "{{ item.username }}:x:{{ item.uid }}:{{ item.gid }}:{{ item.username }}:/home/{{ item.username }}:/bin/bash"
+    line: "{{ item.username }}:x:{{ item.uid }}:{{ item.gid }}:{{ item.gecos }}:/home/{{ item.username }}:/bin/bash"
     state: present
   loop: "{{ parsed_users | default([]) }}"
   become: true
@@ -30,6 +41,31 @@
     regexp: '^{{ item.username }}:'
     line: "{{ item.username }}:!!:19000:0:99999:7:::"
     state: present
+  loop: "{{ parsed_users | default([]) }}"
+  become: true
+  when: item.found | default(false)
+
+- name: Create AccountsService directory
+  ansible.builtin.file:
+    path: /var/lib/AccountsService/users
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+  become: true
+
+- name: Create AccountsService entries with name and icon
+  ansible.builtin.copy:
+    dest: "/var/lib/AccountsService/users/{{ item.username }}"
+    content: |
+      [User]
+      SystemAccount=false
+      Language=da_DK.UTF-8
+      Icon=/usr/share/pixmaps/faces/user-generic.png
+      RealName={{ item.gecos }}
+    mode: '0644'
+    owner: root
+    group: root
   loop: "{{ parsed_users | default([]) }}"
   become: true
   when: item.found | default(false)
