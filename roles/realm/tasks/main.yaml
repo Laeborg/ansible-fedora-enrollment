@@ -126,10 +126,11 @@
 
 - name: Clear SSSD cache to prevent stale data
   ansible.builtin.shell:
-    cmd: rm -rf /var/lib/sss/db/*
+    cmd: find /var/lib/sss/db -mindepth 1 -delete
   become: true
   when: "ad_domain in realm_status.stdout or realm_leave is changed"
   changed_when: true
+  failed_when: false
 
 - name: Join AD realm
   ansible.builtin.shell:
@@ -140,6 +141,29 @@
   register: realm_join
   environment:
     LC_ALL: C
+
+- name: Restore SELinux context after realm join
+  ansible.builtin.command:
+    cmd: restorecon -R /var/lib/sss /etc/sssd
+  become: true
+  when: realm_join is changed
+  changed_when: false
+
+- name: Stop SSSD after realm join to allow config modifications
+  ansible.builtin.systemd:
+    name: sssd
+    state: stopped
+  become: true
+  when: realm_join is changed
+  failed_when: false
+
+- name: Remove config_file_version if present (not needed in newer SSSD)
+  ansible.builtin.lineinfile:
+    path: /etc/sssd/sssd.conf
+    regexp: '^config_file_version\s*='
+    state: absent
+  become: true
+  when: realm_join is changed
 
 - name: Configure SSSD for dynamic DNS updates
   ansible.builtin.lineinfile:
