@@ -1,0 +1,20 @@
+---
+- name: Pre-cache primary users for login screen
+  ansible.builtin.command:
+    cmd: "getent passwd {{ item }}"
+  loop: "{{ primary_users | default([]) }}"
+  register: user_cache
+  changed_when: false
+  failed_when: false
+  become: true
+
+- name: Display cached users
+  ansible.builtin.debug:
+    msg: "Successfully cached {{ primary_users | length }} primary user(s)"
+  when: primary_users is defined and primary_users | length > 0
+
+- name: Show individual user cache results
+  ansible.builtin.debug:
+    msg: "{{ item.item }}: {{ 'cached successfully' if item.rc == 0 else 'NOT FOUND - check username format (username@domain)' }}"
+  loop: "{{ user_cache.results }}"
+  when: primary_users is defined and primary_users | length > 0

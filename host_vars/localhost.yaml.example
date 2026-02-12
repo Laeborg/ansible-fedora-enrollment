@@ -14,7 +14,7 @@ ad_domain: "daoas.local"
 ad_user: "administrator"
 ad_password: "your-ad-password-here"
 ad_computer_ou: "OU=Linux,DC=daoas,DC=local"
-ad_allowed_group: "Linux-Users"
+ad_allowed_group: ""
 
 # VPN Configuration
 vpn_enabled: true
@@ -22,3 +22,7 @@ vpn_server: "vpn.dao.as"
 vpn_authgroup: "dao.int"
 vpn_username: "your-vpn-username"
 vpn_password: "your-vpn-password"
+
+# Primary Users
+primary_users:
+  - "jlb@daoas.local"

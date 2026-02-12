@@ -23,6 +23,10 @@
 - name: Configure services
   ansible.builtin.include_tasks: services.yaml
 
+# Primary User Caching
+- name: Cache primary user for login screen
+  ansible.builtin.include_tasks: primary_user_cache.yaml
+
 # VPN Disconnect
 - name: Disconnect VPN
   ansible.builtin.include_tasks: vpn_disconnect.yaml

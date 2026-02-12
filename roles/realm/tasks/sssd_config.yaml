@@ -82,13 +82,11 @@
   become: true
   notify: restart sssd
 
-- name: Configure InfoPipe to allow listing users
+- name: Remove user_attributes from domain section if present
   ansible.builtin.lineinfile:
     path: /etc/sssd/sssd.conf
-    regexp: '^user_attributes\s*='
-    line: "user_attributes = +telephoneNumber, +mail"
-    insertafter: '^\[ifp\]'
-    state: present
+    regexp: '^user_attributes\s*=.*'
+    state: absent
   become: true
   notify: restart sssd
 
@@ -121,3 +119,33 @@
     state: present
   become: true
   notify: restart sssd
+
+- name: Read SSSD config to find domain section
+  ansible.builtin.shell:
+    cmd: grep -oP '^\[domain/\K[^\]]+' /etc/sssd/sssd.conf | head -1
+  register: sssd_domain_name
+  changed_when: false
+  failed_when: false
+  become: true
+
+- name: Disable user enumeration (too many users in large AD)
+  ansible.builtin.lineinfile:
+    path: /etc/sssd/sssd.conf
+    regexp: '^enumerate\s*='
+    line: "enumerate = False"
+    insertafter: '^\[domain/{{ sssd_domain_name.stdout }}\]'
+    state: present
+  become: true
+  notify: restart sssd
+  when: sssd_domain_name.stdout != ""
+
+- name: Set entry cache timeout for better performance
+  ansible.builtin.lineinfile:
+    path: /etc/sssd/sssd.conf
+    regexp: '^entry_cache_timeout\s*='
+    line: "entry_cache_timeout = 3600"
+    insertafter: '^\[domain/{{ sssd_domain_name.stdout }}\]'
+    state: present
+  become: true
+  notify: restart sssd
+  when: sssd_domain_name.stdout != ""
