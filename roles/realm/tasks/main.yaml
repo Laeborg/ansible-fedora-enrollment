@@ -132,6 +132,16 @@
   changed_when: true
   failed_when: false
 
+- name: Ensure SSSD db directory has correct ownership
+  ansible.builtin.file:
+    path: /var/lib/sss/db
+    state: directory
+    owner: sssd
+    group: sssd
+    mode: '0700'
+  become: true
+  when: "ad_domain in realm_status.stdout or realm_leave is changed"
+
 - name: Join AD realm
   ansible.builtin.shell:
     cmd: |
