@@ -4,10 +4,12 @@
     name:
       - realmd
       - sssd
+      - sssd-dbus
       - oddjob
       - oddjob-mkhomedir
       - adcli
       - samba-common-tools
       - krb5-workstation
+      - accountsservice
     state: present
   become: true

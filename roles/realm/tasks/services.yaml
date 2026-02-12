@@ -31,6 +31,24 @@
     state: started
   become: true
 
+- name: Create cosmic-greeter systemd override directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/cosmic-greeter.service.d
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: Configure cosmic-greeter to wait for SSSD before starting
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/cosmic-greeter.service.d/wait-sssd.conf
+    content: |
+      [Unit]
+      After=sssd.service
+      Wants=sssd.service
+    mode: '0644'
+  become: true
+  notify: reload systemd
+
 - name: Grant sudo access to all AD users
   ansible.builtin.copy:
     dest: /etc/sudoers.d/ad-users

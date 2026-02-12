@@ -73,12 +73,34 @@
   notify: restart sssd
   when: ad_allowed_group is not defined or ad_allowed_group == ""
 
-- name: Configure SSSD services for client
+- name: Configure SSSD services for client (including InfoPipe for user list)
   ansible.builtin.lineinfile:
     path: /etc/sssd/sssd.conf
     regexp: '^services\s*='
-    line: "services = nss, pam"
+    line: "services = nss, pam, ifp"
     state: present
+  become: true
+  notify: restart sssd
+
+- name: Configure InfoPipe to allow listing users
+  ansible.builtin.lineinfile:
+    path: /etc/sssd/sssd.conf
+    regexp: '^user_attributes\s*='
+    line: "user_attributes = +telephoneNumber, +mail"
+    insertafter: '^\[ifp\]'
+    state: present
+  become: true
+  notify: restart sssd
+
+- name: Add InfoPipe section if not present
+  ansible.builtin.blockinfile:
+    path: /etc/sssd/sssd.conf
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - InfoPipe"
+    block: |
+      [ifp]
+      allowed_uids = root, sssd
+      user_attributes = +telephoneNumber, +mail
+    create: false
   become: true
   notify: restart sssd
 
