@@ -12,10 +12,10 @@
   become: true
   when: vpn_auto_connect | default(false)
 
-- name: Configure PAM to use VPN auth script
+- name: Configure PAM to use VPN auth script with password exposure
   ansible.builtin.lineinfile:
     path: /etc/pam.d/system-auth
-    line: "auth optional pam_exec.so quiet /usr/local/bin/pam_vpn_auth.sh"
+    line: "auth optional pam_exec.so expose_authtok quiet /usr/local/bin/pam_vpn_auth.sh"
     insertbefore: '^auth.*sufficient.*pam_sss.so'
     state: present
   become: true

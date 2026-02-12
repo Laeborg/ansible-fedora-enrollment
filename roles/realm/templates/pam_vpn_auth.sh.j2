@@ -16,17 +16,17 @@ if ! ping -c 1 -W 2 "$DC_IP" &>/dev/null; then
 
         # Check if VPN already connected
         if ! pgrep -x openconnect > /dev/null; then
-            # Read password from stdin (PAM provides it)
-            echo "$PAM_AUTHTOK" | openconnect \
+            # Read password from stdin (PAM provides it via expose_authtok)
+            /usr/sbin/openconnect \
                 --useragent="AnyConnect Linux_64 5.1.0" \
                 --authgroup="$VPN_AUTHGROUP" \
                 --user="$VPN_USER" \
                 --passwd-on-stdin \
                 --background \
-                "$VPN_SERVER" &>/dev/null
+                "$VPN_SERVER" </dev/stdin &>/dev/null &
 
             # Wait for VPN to establish
-            sleep 5
+            sleep 8
         fi
     fi
 fi
