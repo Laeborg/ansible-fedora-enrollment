@@ -154,7 +154,7 @@
   ansible.builtin.lineinfile:
     path: /etc/sssd/sssd.conf
     regexp: '^dns_resolver_timeout\s*='
-    line: "dns_resolver_timeout = 2"
+    line: "dns_resolver_timeout = 1"
     insertafter: '^\[domain/{{ sssd_domain_name.stdout }}\]'
     state: present
   become: true
@@ -165,7 +165,7 @@
   ansible.builtin.lineinfile:
     path: /etc/sssd/sssd.conf
     regexp: '^krb5_auth_timeout\s*='
-    line: "krb5_auth_timeout = 3"
+    line: "krb5_auth_timeout = 2"
     insertafter: '^\[domain/{{ sssd_domain_name.stdout }}\]'
     state: present
   become: true
@@ -176,7 +176,7 @@
   ansible.builtin.lineinfile:
     path: /etc/sssd/sssd.conf
     regexp: '^ldap_network_timeout\s*='
-    line: "ldap_network_timeout = 2"
+    line: "ldap_network_timeout = 1"
     insertafter: '^\[domain/{{ sssd_domain_name.stdout }}\]'
     state: present
   become: true
@@ -187,7 +187,7 @@
   ansible.builtin.lineinfile:
     path: /etc/sssd/sssd.conf
     regexp: '^offline_timeout\s*='
-    line: "offline_timeout = 10"
+    line: "offline_timeout = 5"
     insertafter: '^\[domain/{{ sssd_domain_name.stdout }}\]'
     state: present
   become: true
@@ -198,7 +198,7 @@
   ansible.builtin.lineinfile:
     path: /etc/sssd/sssd.conf
     regexp: '^ldap_opt_timeout\s*='
-    line: "ldap_opt_timeout = 2"
+    line: "ldap_opt_timeout = 1"
     insertafter: '^\[domain/{{ sssd_domain_name.stdout }}\]'
     state: present
   become: true
