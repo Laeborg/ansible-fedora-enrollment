@@ -125,28 +125,11 @@
   register: keytab_cleanup
 
 - name: Clear SSSD cache to prevent stale data
-  ansible.builtin.file:
-    path: /var/lib/sss/db
-    state: absent
+  ansible.builtin.shell:
+    cmd: rm -rf /var/lib/sss/db/*
   become: true
   when: "ad_domain in realm_status.stdout or realm_leave is changed"
-
-- name: Recreate SSSD db directory
-  ansible.builtin.file:
-    path: /var/lib/sss/db
-    state: directory
-    mode: '0700'
-    owner: root
-    group: root
-  become: true
-  when: "ad_domain in realm_status.stdout or realm_leave is changed"
-
-- name: Restore SELinux context on SSSD db directory
-  ansible.builtin.command:
-    cmd: restorecon -R /var/lib/sss
-  become: true
-  when: "ad_domain in realm_status.stdout or realm_leave is changed"
-  changed_when: false
+  changed_when: true
 
 - name: Join AD realm
   ansible.builtin.shell:
@@ -181,15 +164,6 @@
     path: /etc/sssd/sssd.conf
     regexp: '^cache_credentials\s*='
     line: "cache_credentials = True"
-    state: present
-  become: true
-  notify: restart sssd
-
-- name: Set offline credentials expiration (90 days)
-  ansible.builtin.lineinfile:
-    path: /etc/sssd/sssd.conf
-    regexp: '^offline_credentials_expiration\s*='
-    line: "offline_credentials_expiration = 90"
     state: present
   become: true
   notify: restart sssd
