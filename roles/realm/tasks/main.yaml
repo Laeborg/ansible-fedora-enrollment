@@ -136,15 +136,6 @@
   become: true
   notify: restart sssd
 
-- name: Configure SSSD to read SSH keys from AD
-  ansible.builtin.lineinfile:
-    path: /etc/sssd/sssd.conf
-    regexp: '^ldap_user_ssh_public_key\s*='
-    line: "ldap_user_ssh_public_key = altSecurityIdentities"
-    state: present
-  become: true
-  notify: restart sssd
-
 - name: Configure SSSD simple allow groups
   ansible.builtin.lineinfile:
     path: /etc/sssd/sssd.conf
@@ -163,11 +154,11 @@
   become: true
   notify: restart sssd
 
-- name: Add SSH service to SSSD services
+- name: Configure SSSD services for client
   ansible.builtin.lineinfile:
     path: /etc/sssd/sssd.conf
     regexp: '^services\s*='
-    line: "services = nss, pam, ssh"
+    line: "services = nss, pam"
     state: present
   become: true
   notify: restart sssd
@@ -190,6 +181,62 @@
     name: sssd
     state: restarted
   become: true
+  when: realm_join is changed
+
+- name: Debug - Display realm status
+  ansible.builtin.command:
+    cmd: realm list
+  register: realm_list_output
+  changed_when: false
+  become: true
+  when: realm_join is changed
+
+- name: Debug - Show realm information
+  ansible.builtin.debug:
+    msg: "{{ realm_list_output.stdout_lines }}"
+  when: realm_join is changed
+
+- name: Debug - Test AD user lookup
+  ansible.builtin.command:
+    cmd: id {{ ad_user }}@{{ ad_domain }}
+  register: ad_user_lookup
+  changed_when: false
+  failed_when: false
+  become: true
+  when: realm_join is changed
+
+- name: Debug - Show AD user info
+  ansible.builtin.debug:
+    msg: "{{ ad_user_lookup.stdout }}"
+  when:
+    - realm_join is changed
+    - ad_user_lookup.rc == 0
+
+- name: Debug - Check SSSD configuration
+  ansible.builtin.command:
+    cmd: grep -E "simple_allow_groups|access_provider" /etc/sssd/sssd.conf
+  register: sssd_config_check
+  changed_when: false
+  failed_when: false
+  become: true
+  when: realm_join is changed
+
+- name: Debug - Show SSSD access configuration
+  ansible.builtin.debug:
+    msg: "{{ sssd_config_check.stdout_lines }}"
+  when: realm_join is changed
+
+- name: Debug - Verify DNS resolution
+  ansible.builtin.command:
+    cmd: nslookup {{ ad_domain }}
+  register: dns_check
+  changed_when: false
+  failed_when: false
+  when: realm_join is changed
+
+- name: Debug - Show DNS results
+  ansible.builtin.debug:
+    msg: "{{ dns_check.stdout_lines }}"
   when: realm_join is changed
 
 - name: Disconnect VPN after realm join
