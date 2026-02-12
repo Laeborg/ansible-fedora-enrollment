@@ -49,6 +49,7 @@ Password: Your AD password
 - ✅ Auto VPN during enrollment (if needed)
 - ✅ Dynamic DNS updates
 - ✅ Home directory auto-creation
+- ✅ Sudo access for all AD users
 
 ## Verify Setup
 
@@ -83,6 +84,7 @@ nslookup daoas.local
 - Login screen uses lowercase: `user@domain.local`
 - Offline login works after first successful login
 - VPN only used during enrollment, not login
+- All AD users automatically get sudo access via "Domain Users" group
 
 ## Optional: TPM2 Disk Encryption
 
