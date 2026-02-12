@@ -9,3 +9,37 @@
     allowerasing: true
   become: true
   when: ansible_distribution == "Fedora"
+
+# Automatic Security Updates
+- name: Install dnf-automatic for automatic updates
+  ansible.builtin.dnf:
+    name: dnf-automatic
+    state: present
+  become: true
+  when: ansible_distribution == "Fedora"
+
+- name: Configure dnf-automatic for security updates only
+  ansible.builtin.lineinfile:
+    path: /etc/dnf/automatic.conf
+    regexp: '^upgrade_type\s*='
+    line: "upgrade_type = security"
+    state: present
+  become: true
+  when: ansible_distribution == "Fedora"
+
+- name: Configure dnf-automatic to apply updates automatically
+  ansible.builtin.lineinfile:
+    path: /etc/dnf/automatic.conf
+    regexp: '^apply_updates\s*='
+    line: "apply_updates = yes"
+    state: present
+  become: true
+  when: ansible_distribution == "Fedora"
+
+- name: Enable and start dnf-automatic timer for daily security updates
+  ansible.builtin.systemd:
+    name: dnf-automatic-install.timer
+    enabled: true
+    state: started
+  become: true
+  when: ansible_distribution == "Fedora"
