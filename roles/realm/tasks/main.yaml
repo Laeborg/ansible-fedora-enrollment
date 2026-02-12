@@ -141,6 +141,13 @@
   become: true
   when: "ad_domain in realm_status.stdout or realm_leave is changed"
 
+- name: Restore SELinux context on SSSD db directory
+  ansible.builtin.command:
+    cmd: restorecon -R /var/lib/sss
+  become: true
+  when: "ad_domain in realm_status.stdout or realm_leave is changed"
+  changed_when: false
+
 - name: Join AD realm
   ansible.builtin.shell:
     cmd: |
