@@ -1,116 +1,47 @@
-# Fedora Active Directory Enrollment
+# Fedora AD Enrollment
 
-Automated AD domain join for Fedora 43 workstations with offline login support.
+Automated Active Directory join for Fedora workstations.
 
-## Quick Start
+## Installation
 
-### 1. Install Ansible
 ```bash
+# 1. Install Ansible
 sudo dnf install ansible
-```
 
-### 2. Configure
-Edit `host_vars/localhost.yaml`:
+# 2. Edit host_vars/localhost.yaml
+# Fill in AD credentials and domain info
 
-```yaml
-# Hostname (must be FQDN)
-hostname_static: "dao-nb-5000.daoas.local"
-
-# Active Directory
-ad_domain: "daoas.local"
-ad_dns_servers:
-  - "192.168.1.10"
-ad_user: "administrator"
-ad_password: "your-password"
-ad_computer_ou: "OU=Linux,DC=daoas,DC=local"
-ad_allowed_group: ""  # Empty = all AD users
-
-# VPN (optional - for remote enrollment)
-vpn_enabled: true
-vpn_server: "vpn.dao.as"
-vpn_authgroup: "dao.int"
-vpn_username: "your-vpn-user"
-vpn_password: "your-vpn-password"
-```
-
-### 3. Run
-```bash
+# 3. Run playbook
 ansible-playbook -i inventory/localhost.yaml playbooks.yaml --ask-become-pass
+
+# 4. Reboot and login with AD user
+# Username: username@domain.local
 ```
 
-### 4. Login
-Username: `username@daoas.local`
-Password: Your AD password
+## What it does
 
-## Features
+- Joins AD domain
+- Sets DNS to domain controllers
+- Offline login (cached credentials)
+- Auto-creates home directories
+- All AD users get sudo access
+- Automatic security updates
+- TPM2 disk unlock (if configured)
 
-- ✅ AD realm join with SSSD
-- ✅ Offline login (cached credentials)
-- ✅ Auto VPN during enrollment (if needed)
-- ✅ Dynamic DNS updates
-- ✅ Home directory auto-creation
-- ✅ Sudo access for all AD users
-
-## Verify Setup
+## Verification
 
 ```bash
-# Check join status
-sudo adcli testjoin
-
-# Test user lookup
-id username@daoas.local
-
-# Check SSSD
-sudo systemctl status sssd
+sudo adcli testjoin          # Check AD join
+id username@domain.local     # Test user lookup
+sudo systemctl status sssd   # Check SSSD
 ```
 
 ## Troubleshooting
 
-**Login fails with "Incorrect password":**
-1. Check: `sudo adcli testjoin`
-2. If fails: Delete computer account in AD and re-run playbook
-
-**Can't find domain:**
+**Login not working:**
 ```bash
-# Check DNS
-cat /etc/systemd/resolved.conf.d/ad-domain.conf
-nslookup daoas.local
+sudo adcli testjoin  # If error: delete computer in AD and re-run playbook
 ```
 
-## Notes
-
-- Hostname must be FQDN format
-- Use uppercase domain for `kinit`: `kinit user@DOMAIN.LOCAL`
-- Login screen uses lowercase: `user@domain.local`
-- Offline login works after first successful login
-- VPN only used during enrollment, not login
-- All AD users automatically get sudo access via "Domain Users" group
-
-## Optional: TPM2 Disk Encryption
-
-Configure in `host_vars/localhost.yaml`:
-```yaml
-luks_device: "/dev/nvme0n1p3"
-luks_passphrase: "your-passphrase"
-```
-
-The disk_encryption role is included in `playbooks.yaml`. To disable it, comment it out:
-```yaml
-roles:
-  - hostname
-  - disk_encryption
-  - realm
-```
-
-## Files
-```
-ansible-fedora-enrollment/
-├── playbooks.yaml                 # Main playbook
-├── inventory/localhost.yaml       # Inventory
-├── host_vars/localhost.yaml       # Configuration (edit this!)
-└── roles/
-    ├── hostname/                  # Set system hostname
-    ├── disk_encryption/           # TPM2 LUKS unlock
-    ├── realm/                     # AD realm join
-    └── system_config/             # System cleanup (removes iBus on COSMIC)
-```
+**Timeout when logging in without VPN:**
+SSSD timeouts are set to 5 seconds - if too long, adjust in `roles/realm/tasks/sssd_config.yaml`
