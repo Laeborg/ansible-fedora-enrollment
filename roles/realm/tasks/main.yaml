@@ -144,15 +144,27 @@
     state: present
   become: true
   notify: restart sssd
+  when: ad_allowed_group is defined and ad_allowed_group != ""
 
 - name: Change SSSD access provider to simple
   ansible.builtin.lineinfile:
     path: /etc/sssd/sssd.conf
-    regexp: '^access_provider\s*=\s*ad'
+    regexp: '^access_provider\s*='
     line: "access_provider = simple"
-    backrefs: false
+    state: present
   become: true
   notify: restart sssd
+  when: ad_allowed_group is defined and ad_allowed_group != ""
+
+- name: Allow all AD users (no group restriction)
+  ansible.builtin.lineinfile:
+    path: /etc/sssd/sssd.conf
+    regexp: '^access_provider\s*='
+    line: "access_provider = permit"
+    state: present
+  become: true
+  notify: restart sssd
+  when: ad_allowed_group is not defined or ad_allowed_group == ""
 
 - name: Configure SSSD services for client
   ansible.builtin.lineinfile:
