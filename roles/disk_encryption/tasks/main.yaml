@@ -1,81 +1,12 @@
 ---
-- name: Install Clevis packages for TPM2 disk encryption
-  ansible.builtin.dnf:
-    name:
-      - clevis
-      - clevis-luks
-      - clevis-dracut
-      - clevis-systemd
-    state: present
-  become: true
+# Package Installation
+- name: Install required packages
+  ansible.builtin.include_tasks: packages.yaml
 
-- name: Check if LUKS device is already bound to TPM2
-  ansible.builtin.command:
-    cmd: "cryptsetup luksDump {{ luks_device }}"
-  register: luks_dump
-  changed_when: false
-  become: true
-
+# LUKS Binding
 - name: Bind LUKS device to TPM2
-  ansible.builtin.shell:
-    cmd: |
-      echo -n "{{ luks_passphrase }}" | clevis luks bind -d {{ luks_device }} tpm2 '{"pcr_bank":"{{ tpm2_pcr_bank }}","pcr_ids":"{{ tpm2_pcr_ids }}"}'
-  when: "'clevis' not in luks_dump.stdout"
-  become: true
-  register: clevis_bind
-  environment:
-    LC_ALL: C
+  ansible.builtin.include_tasks: luks_bind.yaml
 
-- name: Display LUKS dump for verification
-  ansible.builtin.command:
-    cmd: "cryptsetup luksDump {{ luks_device }}"
-  register: luks_verification
-  changed_when: false
-  become: true
-
-- name: Show LUKS dump output
-  ansible.builtin.debug:
-    var: luks_verification.stdout_lines
-
-- name: Read current GRUB configuration
-  ansible.builtin.slurp:
-    path: /etc/default/grub
-  register: grub_config
-  become: true
-
-- name: Add TPM2 device parameter to GRUB_CMDLINE_LINUX if not present
-  ansible.builtin.lineinfile:
-    path: /etc/default/grub
-    regexp: '^GRUB_CMDLINE_LINUX="(.*)"$'
-    line: 'GRUB_CMDLINE_LINUX="\1 rd.luks.options=tpm2-device=auto"'
-    backrefs: true
-  when: "'rd.luks.options=tpm2-device=auto' not in (grub_config.content | b64decode)"
-  become: true
-  register: grub_modified
-
-- name: Regenerate initramfs with dracut
-  ansible.builtin.command:
-    cmd: dracut -f
-  when: clevis_bind is changed or grub_modified is changed
-  become: true
-  register: dracut_result
-
-- name: Regenerate GRUB configuration
-  ansible.builtin.command:
-    cmd: grub2-mkconfig -o /boot/grub2/grub.cfg
-  when: grub_modified is changed
-  become: true
-  register: grub_result
-
-- name: Show dracut and GRUB regeneration status
-  ansible.builtin.debug:
-    msg:
-      - "Dracut regenerated: {{ dracut_result is changed }}"
-      - "GRUB config regenerated: {{ grub_result is changed }}"
-  when: dracut_result is defined or grub_result is defined
-
-- name: Disable NetworkManager-wait-online.service
-  ansible.builtin.systemd:
-    name: NetworkManager-wait-online.service
-    enabled: false
-  become: true
+# GRUB Configuration
+- name: Configure GRUB and regenerate boot
+  ansible.builtin.include_tasks: grub_config.yaml

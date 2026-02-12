@@ -1,0 +1,45 @@
+---
+- name: Create SSSD systemd override directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/sssd.service.d
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: Configure SSSD to wait for network before starting
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/sssd.service.d/wait-network.conf
+    content: |
+      [Unit]
+      After=network-online.target
+      Wants=network-online.target
+    mode: '0644'
+  become: true
+  notify: reload systemd
+
+- name: Enable SSSD service
+  ansible.builtin.systemd:
+    name: sssd
+    enabled: true
+    daemon_reload: true
+  become: true
+
+- name: Enable oddjobd service for home directory creation
+  ansible.builtin.systemd:
+    name: oddjobd
+    enabled: true
+    state: started
+  become: true
+
+- name: Grant sudo access to all AD users
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/ad-users
+    content: |
+      # Allow all AD domain users to use sudo
+      %domain\ users@{{ ad_domain }} ALL=(ALL:ALL) ALL
+    mode: '0440'
+    validate: /usr/sbin/visudo -cf %s
+  become: true
+
+- name: Flush handlers to restart SSSD with new configuration
+  ansible.builtin.meta: flush_handlers

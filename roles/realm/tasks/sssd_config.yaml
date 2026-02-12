@@ -1,0 +1,101 @@
+---
+- name: Remove config_file_version if present (not needed in newer SSSD)
+  ansible.builtin.lineinfile:
+    path: /etc/sssd/sssd.conf
+    regexp: '^config_file_version\s*='
+    state: absent
+  become: true
+  when: realm_join is changed
+
+- name: Configure SSSD for dynamic DNS updates
+  ansible.builtin.lineinfile:
+    path: /etc/sssd/sssd.conf
+    regexp: '^dyndns_update\s*='
+    line: "dyndns_update = True"
+    state: present
+  become: true
+  notify: restart sssd
+
+- name: Configure SSSD for dynamic DNS PTR updates
+  ansible.builtin.lineinfile:
+    path: /etc/sssd/sssd.conf
+    regexp: '^dyndns_update_ptr\s*='
+    line: "dyndns_update_ptr = True"
+    state: present
+  become: true
+  notify: restart sssd
+
+- name: Enable offline credentials caching
+  ansible.builtin.lineinfile:
+    path: /etc/sssd/sssd.conf
+    regexp: '^cache_credentials\s*='
+    line: "cache_credentials = True"
+    state: present
+  become: true
+  notify: restart sssd
+
+- name: Allow offline authentication
+  ansible.builtin.lineinfile:
+    path: /etc/sssd/sssd.conf
+    regexp: '^krb5_store_password_if_offline\s*='
+    line: "krb5_store_password_if_offline = True"
+    state: present
+  become: true
+  notify: restart sssd
+
+- name: Configure SSSD simple allow groups
+  ansible.builtin.lineinfile:
+    path: /etc/sssd/sssd.conf
+    regexp: '^simple_allow_groups\s*='
+    line: "simple_allow_groups = {{ ad_allowed_group }}"
+    state: present
+  become: true
+  notify: restart sssd
+  when: ad_allowed_group is defined and ad_allowed_group != ""
+
+- name: Change SSSD access provider to simple
+  ansible.builtin.lineinfile:
+    path: /etc/sssd/sssd.conf
+    regexp: '^access_provider\s*='
+    line: "access_provider = simple"
+    state: present
+  become: true
+  notify: restart sssd
+  when: ad_allowed_group is defined and ad_allowed_group != ""
+
+- name: Allow all AD users (no group restriction)
+  ansible.builtin.lineinfile:
+    path: /etc/sssd/sssd.conf
+    regexp: '^access_provider\s*='
+    line: "access_provider = permit"
+    state: present
+  become: true
+  notify: restart sssd
+  when: ad_allowed_group is not defined or ad_allowed_group == ""
+
+- name: Configure SSSD services for client
+  ansible.builtin.lineinfile:
+    path: /etc/sssd/sssd.conf
+    regexp: '^services\s*='
+    line: "services = nss, pam"
+    state: present
+  become: true
+  notify: restart sssd
+
+- name: Enable automatic machine password renewal
+  ansible.builtin.lineinfile:
+    path: /etc/sssd/sssd.conf
+    regexp: '^ad_machine_account_password_renewal_opts\s*='
+    line: "ad_machine_account_password_renewal_opts = 30:7"
+    state: present
+  become: true
+  notify: restart sssd
+
+- name: Set machine password renewal timeout
+  ansible.builtin.lineinfile:
+    path: /etc/sssd/sssd.conf
+    regexp: '^ad_maximum_machine_account_password_age\s*='
+    line: "ad_maximum_machine_account_password_age = 30"
+    state: present
+  become: true
+  notify: restart sssd

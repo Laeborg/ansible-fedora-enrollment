@@ -1,0 +1,13 @@
+---
+- name: Install required packages for AD realm join
+  ansible.builtin.dnf:
+    name:
+      - realmd
+      - sssd
+      - oddjob
+      - oddjob-mkhomedir
+      - adcli
+      - samba-common-tools
+      - krb5-workstation
+    state: present
+  become: true

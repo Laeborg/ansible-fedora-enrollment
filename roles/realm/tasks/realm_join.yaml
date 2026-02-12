@@ -1,0 +1,111 @@
+---
+- name: Check if system is already joined to a realm
+  ansible.builtin.command:
+    cmd: realm list
+  register: realm_status
+  changed_when: false
+  failed_when: false
+  become: true
+
+- name: Test existing realm join if already joined
+  ansible.builtin.command:
+    cmd: adcli testjoin
+  register: realm_test
+  changed_when: false
+  failed_when: false
+  become: true
+  when: "ad_domain in realm_status.stdout"
+
+- name: Display realm join status
+  ansible.builtin.debug:
+    msg: "System already joined to {{ ad_domain }} and working correctly. Skipping rejoin."
+  when:
+    - "ad_domain in realm_status.stdout"
+    - realm_test.rc == 0
+
+- name: Leave existing realm if joined but not working
+  ansible.builtin.shell:
+    cmd: |
+      echo "{{ ad_password }}" | realm leave {{ ad_domain }} --user={{ ad_user }}
+  when:
+    - "ad_domain in realm_status.stdout"
+    - realm_test.rc != 0
+  become: true
+  no_log: false
+  register: realm_leave
+  failed_when: false
+
+- name: Stop SSSD before cleanup
+  ansible.builtin.systemd:
+    name: sssd
+    state: stopped
+  become: true
+  when: realm_leave is changed
+  failed_when: false
+
+- name: Remove old keytab to prevent authentication issues
+  ansible.builtin.file:
+    path: /etc/krb5.keytab
+    state: absent
+  become: true
+  when: realm_leave is changed
+  register: keytab_cleanup
+
+- name: Clear SSSD cache to prevent stale data
+  ansible.builtin.shell:
+    cmd: find /var/lib/sss/db -mindepth 1 -delete
+  become: true
+  when: realm_leave is changed
+  changed_when: true
+  failed_when: false
+
+- name: Ensure SSSD db directory has correct ownership
+  ansible.builtin.file:
+    path: /var/lib/sss/db
+    state: directory
+    owner: sssd
+    group: sssd
+    mode: '0700'
+  become: true
+  when: realm_leave is changed
+
+- name: Join AD realm
+  ansible.builtin.shell:
+    cmd: |
+      echo "{{ ad_password }}" | realm join {{ ad_domain }} --user={{ ad_user }} --computer-ou='{{ ad_computer_ou }}'
+  when: >
+    ad_domain not in realm_status.stdout or
+    (realm_test is defined and realm_test.rc != 0)
+  become: true
+  register: realm_join
+  environment:
+    LC_ALL: C
+
+- name: Restore SELinux context after realm join
+  ansible.builtin.command:
+    cmd: restorecon -R /var/lib/sss /etc/sssd
+  become: true
+  when: realm_join is changed
+  changed_when: false
+
+- name: Validate realm join was successful
+  ansible.builtin.command:
+    cmd: adcli testjoin
+  become: true
+  when: realm_join is changed
+  changed_when: false
+  register: testjoin_result
+  failed_when: testjoin_result.rc != 0
+
+- name: Display realm join validation result
+  ansible.builtin.debug:
+    msg: "Realm join validated successfully: {{ testjoin_result.stdout }}"
+  when: realm_join is changed
+
+- name: Stop SSSD after realm join to allow config modifications
+  ansible.builtin.systemd:
+    name: sssd
+    state: stopped
+  become: true
+  when: realm_join is changed
+  failed_when: false

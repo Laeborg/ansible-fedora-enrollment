@@ -1,0 +1,10 @@
+---
+- name: Install Clevis packages for TPM2 disk encryption
+  ansible.builtin.dnf:
+    name:
+      - clevis
+      - clevis-luks
+      - clevis-dracut
+      - clevis-systemd
+    state: present
+  become: true

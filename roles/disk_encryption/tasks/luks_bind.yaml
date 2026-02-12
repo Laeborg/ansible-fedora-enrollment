@@ -1,0 +1,28 @@
+---
+- name: Check if LUKS device is already bound to TPM2
+  ansible.builtin.command:
+    cmd: "cryptsetup luksDump {{ luks_device }}"
+  register: luks_dump
+  changed_when: false
+  become: true
+
+- name: Bind LUKS device to TPM2
+  ansible.builtin.shell:
+    cmd: |
+      echo -n "{{ luks_passphrase }}" | clevis luks bind -d {{ luks_device }} tpm2 '{"pcr_bank":"{{ tpm2_pcr_bank }}","pcr_ids":"{{ tpm2_pcr_ids }}"}'
+  when: "'clevis' not in luks_dump.stdout"
+  become: true
+  register: clevis_bind
+  environment:
+    LC_ALL: C
+
+- name: Display LUKS dump for verification
+  ansible.builtin.command:
+    cmd: "cryptsetup luksDump {{ luks_device }}"
+  register: luks_verification
+  changed_when: false
+  become: true
+
+- name: Show LUKS dump output
+  ansible.builtin.debug:
+    var: luks_verification.stdout_lines

@@ -1,0 +1,28 @@
+---
+- name: Create systemd-resolved configuration directory
+  ansible.builtin.file:
+    path: /etc/systemd/resolved.conf.d
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: Configure conditional DNS forwarding for AD domain
+  ansible.builtin.copy:
+    dest: /etc/systemd/resolved.conf.d/ad-domain.conf
+    content: |
+      [Resolve]
+      DNS={{ ad_dns_servers | join(' ') }}
+      Domains=~{{ ad_domain }}
+    mode: '0644'
+  become: true
+  notify: restart systemd-resolved
+
+- name: Enable and start systemd-resolved
+  ansible.builtin.systemd:
+    name: systemd-resolved
+    enabled: true
+    state: started
+  become: true
+
+- name: Flush handlers to ensure DNS is configured
+  ansible.builtin.meta: flush_handlers
