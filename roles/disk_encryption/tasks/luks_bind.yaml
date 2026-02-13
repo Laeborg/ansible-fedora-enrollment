@@ -56,8 +56,8 @@
 
 - name: Bind LUKS device to TPM2
   ansible.builtin.shell:
-    cmd: |
-      echo -n "{{ luks_passphrase }}" | clevis luks bind -d {{ luks_device }} tpm2 '{"pcr_bank":"{{ tpm2_pcr_bank }}","pcr_ids":"{{ tpm2_pcr_ids }}"}'
+    cmd: clevis luks bind -d {{ luks_device }} tpm2 '{"pcr_bank":"{{ tpm2_pcr_bank }}","pcr_ids":"{{ tpm2_pcr_ids }}"}'
+    stdin: "{{ luks_passphrase }}"
   when: "'clevis' not in luks_dump.stdout"
   become: true
   register: clevis_bind
