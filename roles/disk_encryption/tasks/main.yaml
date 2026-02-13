@@ -2,14 +2,11 @@
 # Package Installation
 - name: Install required packages
   ansible.builtin.include_tasks: packages.yaml
-  become: true
 
 # LUKS Binding
 - name: Bind LUKS device to TPM2
   ansible.builtin.include_tasks: luks_bind.yaml
-  become: true
 
 # GRUB Configuration
 - name: Configure GRUB and regenerate boot
   ansible.builtin.include_tasks: grub_config.yaml
-  become: true

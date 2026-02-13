@@ -2,39 +2,31 @@
 # DNS Configuration
 - name: Configure DNS for AD domain
   ansible.builtin.include_tasks: dns_setup.yaml
-  become: true
 
 # VPN Connection (if needed)
 - name: Establish VPN connection if needed
   ansible.builtin.include_tasks: vpn_connect.yaml
-  become: true
 
 # Package Installation
 - name: Install required packages
   ansible.builtin.include_tasks: packages.yaml
-  become: true
 
 # Realm Join
 - name: Join AD realm
   ansible.builtin.include_tasks: realm_join.yaml
-  become: true
 
 # SSSD Configuration
 - name: Configure SSSD
   ansible.builtin.include_tasks: sssd_config.yaml
-  become: true
 
 # Service Configuration
 - name: Configure services
   ansible.builtin.include_tasks: services.yaml
-  become: true
 
 # Primary User Caching
 - name: Cache primary user for login screen
   ansible.builtin.include_tasks: primary_user_cache.yaml
-  become: true
 
 # VPN Disconnect
 - name: Disconnect VPN
   ansible.builtin.include_tasks: vpn_disconnect.yaml
-  become: true

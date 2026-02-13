@@ -1,14 +1,16 @@
 ---
-- name: Check if device exists
-  ansible.builtin.stat:
-    path: "{{ luks_device }}"
-  register: device_exists
+- name: Check if device is a block device
+  ansible.builtin.command:
+    cmd: "test -b {{ luks_device }}"
+  register: device_check
+  changed_when: false
+  failed_when: false
   become: true
 
-- name: Verify device exists before proceeding
+- name: Verify device exists and is a block device
   ansible.builtin.fail:
-    msg: "Device {{ luks_device }} does not exist. Please check the luks_device variable in host_vars."
-  when: not device_exists.stat.exists
+    msg: "Device {{ luks_device }} does not exist or is not a block device. Please check the luks_device variable in host_vars. Run 'lsblk' to see available devices."
+  when: device_check.rc != 0
 
 - name: Check if LUKS device is already bound to TPM2
   ansible.builtin.command:
