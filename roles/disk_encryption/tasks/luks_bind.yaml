@@ -1,10 +1,56 @@
 ---
+- name: Check if device exists
+  ansible.builtin.stat:
+    path: "{{ luks_device }}"
+  register: device_exists
+  become: true
+
+- name: Verify device exists before proceeding
+  ansible.builtin.fail:
+    msg: "Device {{ luks_device }} does not exist. Please check the luks_device variable in host_vars."
+  when: not device_exists.stat.exists
+
 - name: Check if LUKS device is already bound to TPM2
   ansible.builtin.command:
     cmd: "cryptsetup luksDump {{ luks_device }}"
   register: luks_dump
   changed_when: false
+  failed_when: false
   become: true
+
+- name: Find all LUKS devices on system
+  ansible.builtin.shell:
+    cmd: "blkid -t TYPE=crypto_LUKS -o device"
+  register: luks_devices
+  changed_when: false
+  failed_when: false
+  become: true
+  when: luks_dump.rc != 0
+
+- name: Check if device is a LUKS encrypted device
+  ansible.builtin.fail:
+    msg: |
+      Device {{ luks_device }} is not a LUKS encrypted device.
+      {% if luks_devices.stdout_lines | length > 0 %}
+
+      However, these LUKS devices were found on your system:
+      {{ luks_devices.stdout_lines | join('\n') }}
+
+      Update the 'luks_device' variable in host_vars/localhost.yaml to use the correct device.
+      {% else %}
+
+      No LUKS devices found on this system.
+
+      If Fedora was installed with encryption, check 'lsblk' to find the encrypted device.
+      {% endif %}
+
+      To encrypt {{ luks_device }} with LUKS:
+      1. Back up all data
+      2. Run: cryptsetup luksFormat {{ luks_device }}
+      3. Restore data
+
+      OR remove the disk_encryption role from playbook if encryption is not needed.
+  when: luks_dump.rc != 0
 
 - name: Bind LUKS device to TPM2
   ansible.builtin.shell:
