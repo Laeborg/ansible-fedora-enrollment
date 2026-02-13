@@ -49,15 +49,16 @@
   become: true
   notify: reload systemd
 
-- name: Grant sudo access to all AD users
-  ansible.builtin.copy:
-    dest: /etc/sudoers.d/ad-users
-    content: |
-      # Allow all AD domain users to use sudo
-      %domain\ users@{{ ad_domain }} ALL=(ALL:ALL) ALL
-    mode: '0440'
-    validate: /usr/sbin/visudo -cf %s
-  become: true
+# Disabled: AD users cannot login (access_provider = deny)
+# - name: Grant sudo access to all AD users
+#   ansible.builtin.copy:
+#     dest: /etc/sudoers.d/ad-users
+#     content: |
+#       # Allow all AD domain users to use sudo
+#       %domain\ users@{{ ad_domain }} ALL=(ALL:ALL) ALL
+#     mode: '0440'
+#     validate: /usr/sbin/visudo -cf %s
+#   become: true
 
 - name: Flush handlers to restart SSSD with new configuration
   ansible.builtin.meta: flush_handlers
